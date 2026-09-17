@@ -1,8 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="An interactive recreation of Nils Aall Barricelli's 1953 numerical-evolution experiments on the IAS computer at Princeton.">
 <title>Barricelli's Universe</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
 <style>
+  /* document reset — supplied by the artifact host previously, needed when this
+     file is served as a standalone page */
+  html{ color-scheme:light; }
+  @media (prefers-color-scheme:dark){ html:not([data-theme="light"]){ color-scheme:dark; } }
+  html[data-theme="dark"]{ color-scheme:dark; }
+  body{ margin:0; padding:0; }
+  img{ max-width:100%; }
+  [hidden]{ display:none !important; }
+
   :root{
     --room:#d8d2c2;
     --paper:#f4f0e6;
@@ -83,7 +98,9 @@
     display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;
     margin-top:12px; padding-top:12px; border-top:1px dashed var(--rule);
   }
-  .legend{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-faint); }
+  /* the legend claims the whole first line so the show switch stays put on the
+     second one, instead of hopping up whenever a shorter label makes room */
+  .legend{ flex:0 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-faint); }
   .swatch-strip{ display:flex; gap:2px; }
   .swatch-strip i{ width:11px; height:13px; display:block; border-radius:1px; }
   .hl-group{ display:flex; align-items:center; gap:0; }
@@ -183,13 +200,14 @@
 
   /* ---- inspector ---- */
   .inspector{
+    position:relative;
     background:var(--paper-2); border:1px solid var(--rule); border-left:3px solid var(--highlighter);
-    border-radius:4px; padding:14px 16px; display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline;
+    border-radius:4px; padding:14px 46px 14px 16px; display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline;
   }
   .inspector[hidden]{ display:none; }
   .inspector dt{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); }
   .inspector dd{ margin:0 0 8px 0; font-family:var(--font-mono); font-size:14px; font-variant-numeric:tabular-nums; }
-  .inspector .close{ margin-left:auto; align-self:flex-start; }
+  .inspector .close{ position:absolute; top:8px; right:9px; margin:0; padding:3px 8px; line-height:1; }
 
   /* ---- rail ---- */
   .panels{ display:flex; flex-direction:column; gap:12px; }
@@ -253,6 +271,33 @@
     justify-content:start; gap:10px 34px; align-items:start;
   }
 
+  /* ---- trials ---- */
+  .tr-intro{ font-size:12.5px; line-height:1.55; color:var(--ink-faint); max-width:64ch; }
+  .tr-controls{ display:flex; flex-wrap:wrap; align-items:end; gap:12px 18px; }
+  .tr-controls .field{ flex:0 0 120px; }
+  .tr-controls button{ flex:0 0 150px; }
+  .tr-controls button[disabled]{ opacity:.6; cursor:default; }
+  .tr-caption{ font-size:12px; color:var(--ink-faint); line-height:1.5; }
+  .tr-caption .now-key{ color:var(--highlighter); font-weight:600; }
+  .tr-grid{ display:grid; grid-template-columns:auto 1fr auto; gap:9px 14px; align-items:center; margin-top:4px; }
+  .tr-name{ font-size:12.5px; color:var(--ink-faint); white-space:nowrap; }
+  .tr-track{ position:relative; height:16px; min-width:120px; }
+  .tr-track::before{                       /* full observed range */
+    content:''; position:absolute; left:0; right:0; top:7px; height:2px;
+    background:var(--rule); border-radius:1px;
+  }
+  .tr-box{                                  /* middle half of the trials */
+    position:absolute; top:3px; height:10px; border-radius:2px;
+    background:color-mix(in srgb, var(--ink) 26%, transparent);
+  }
+  .tr-med{ position:absolute; top:1px; width:2px; height:14px; background:var(--ink); }
+  .tr-now{
+    position:absolute; top:2px; width:2px; height:12px; background:var(--highlighter);
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--highlighter) 30%, transparent);
+  }
+  .tr-val{ font-family:var(--font-mono); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tr-val small{ color:var(--ink-faint); }
+
   /* ---- run panel ---- */
   .transport{ flex-direction:row; flex-wrap:wrap; align-items:end; gap:14px 22px; }
   .transport .panel-title{ flex:0 0 100%; }
@@ -285,7 +330,8 @@
   .cite{ margin-top:16px; font-size:12px; color:var(--ink-faint); font-style:italic; }
   .notes code{ font-family:var(--font-mono); font-size:13px; }
 </style>
-
+</head>
+<body>
 <div class="app">
   <header class="record">
     <div class="eyebrow">Numerical evolution — after N. A. Barricelli, 1953–57</div>
@@ -324,7 +370,7 @@
           <button data-hl="all" aria-pressed="true">everything</button>
           <button data-hl="symb" aria-pressed="false">symbionts<span class="tip" aria-hidden="true">Genes locked in <b>mutual</b> dependence: A reads B's value to earn an extra copy, and B reads A's. Neither reproduces as well without the other. A connected run of them is one <b>organism</b> — Barricelli's symbioorganism — so the ledger counts the cells and the organisms separately.</span></button>
           <button data-hl="par" aria-pressed="false">parasites<span class="tip" aria-hidden="true">Genes that read a neighbor to earn an extra copy while that neighbor gets nothing back. The dependency runs <b>one way only</b>. A cell counts here when it has at least one such link and no mutual one.</span></button>
-          <button data-hl="org" aria-pressed="false">organisms<span class="tip" aria-hidden="true">Colors each cell by <b>which organism</b> it belongs to, followed from one generation to the next, so you can watch a body persist, split or die. Everything outside an organism drops away. Roughly three quarters of organisms last a single generation, so each one is drawn <b>more solidly the longer it survives</b> — the faint speckle is churn, the solid bands are the ones that endure.</span></button>
+          <button data-hl="org" aria-pressed="false">organisms<span class="tip" aria-hidden="true">An <b>organism</b> is a connected run of genes that depend on each other to reproduce: A reads B’s value to earn an extra copy and B reads A’s, and any cells joined by such mutual links form one body — Barricelli’s <em>symbioorganism</em>. This view colors each cell by <b>which organism</b> it belongs to, followed from one generation to the next, so you can watch a body persist, split or die. Everything outside an organism drops away. Roughly three quarters of organisms last a single generation, so each one is drawn <b>more solidly the longer it survives</b> — the faint speckle is churn, the solid bands are the ones that endure.</span></button>
         </div>
         <span class="hint">Click a cell to trace its <b>ancestry</b>. Zoom in to scroll sideways.</span>
       </div>
@@ -413,6 +459,25 @@
           <dt><span class="lg-term" tabindex="0">Oldest organism<span class="tip">How many generations the longest-surviving organism has held together. Most organisms last a single generation; a few persist for hundreds, and those are the ones worth watching. The <em>organisms</em> view draws each one more solidly the longer it has survived.</span></span></dt><dd id="statOldest">—</dd>
         </dl>
         <canvas id="sparkCanvas" width="272" height="44"></canvas>
+      </div>
+    </details>
+
+    <details class="panel acc">
+      <summary>Trials</summary>
+      <div class="acc-body">
+        <p class="tr-intro">One run tells you very little. Two universes built from identical settings routinely differ by an order of magnitude, so a striking result may be nothing but luck. This rebuilds the current settings from scratch several times over and shows the spread.</p>
+        <div class="tr-controls">
+          <label class="field">Trials
+            <select id="trialCount">
+              <option>10</option><option selected>25</option><option>50</option><option>100</option>
+            </select>
+          </label>
+          <label class="field">Generations each
+            <input type="number" id="trialGens" min="10" max="2000" step="10" value="300">
+          </label>
+          <button class="primary" id="trialsBtn">Run trials</button>
+        </div>
+        <div id="trialsOut"></div>
       </div>
     </details>
 
@@ -1036,6 +1101,95 @@
   resetBtn.addEventListener('click', ()=>{ pause(); resetUniverse(true); });
   extinctReset.addEventListener('click', ()=>{ pause(); resetUniverse(true); });
 
+  // ---------- trials: the same settings, built again from scratch ----------
+  // Run-to-run variance here is enormous — symbiont counts spanning 4 to 427 on
+  // identical settings — so a single universe cannot tell you whether what you
+  // are looking at is an effect or an accident. These run headless: no history,
+  // no drawing, about 7ms per 300 generations.
+  const METRICS = [
+    {key:'pop',      label:'Population',       stat:()=>statPop},
+    {key:'distinct', label:'Distinct genes',   stat:()=>statSpecies},
+    {key:'symb',     label:'Symbiont cells',   stat:()=>statSymb},
+    {key:'orgs',     label:'Organisms',        stat:()=>statOrg},
+    {key:'biggest',  label:'Largest organism', stat:()=>statBiggest}
+  ];
+  const trialCount = document.getElementById('trialCount');
+  const trialGens = document.getElementById('trialGens');
+  const trialsBtn = document.getElementById('trialsBtn');
+  const trialsOut = document.getElementById('trialsOut');
+
+  function headlessStep(cur, size){
+    const next = new Int16Array(size);
+    const parent = new Int16Array(size);
+    for(let j=0;j<size;j++){ const X = cur[j]; if(X!==0) placeGene(cur,next,parent,size,X,j,X,0); }
+    return next;
+  }
+  function runTrial(gens){
+    let cur = freshUniverse(state.size, state.density, state.K);
+    for(let g=0;g<gens;g++) cur = headlessStep(cur, state.size);
+    const r = analyzeRoles(cur, state.size, state.maxRepro);
+    return {pop:countNonZero(cur), distinct:countSpecies(cur),
+            symb:r.symb, orgs:r.clusters, biggest:r.biggest};
+  }
+  const quant = (sorted,p) => sorted[Math.min(sorted.length-1, Math.floor(sorted.length*p))];
+
+  function renderTrials(runs, gens, now, nowGen){
+    const rows = METRICS.map(m=>{
+      const a = runs.map(r=>r[m.key]).sort((x,y)=>x-y);
+      const lo = Math.min(a[0], now[m.key]), hi = Math.max(a[a.length-1], now[m.key]);
+      const span = Math.max(1, hi-lo);
+      const pc = v => ((v-lo)/span*100).toFixed(1);
+      const q1 = quant(a,.25), med = quant(a,.5), q3 = quant(a,.75);
+      return `<div class="tr-name">${m.label}</div>
+        <div class="tr-track" role="img" aria-label="${m.label}: trials range ${a[0]} to ${a[a.length-1]}, median ${med}; this run ${now[m.key]}">
+          <div class="tr-box" style="left:${pc(q1)}%;width:${Math.max(0.6,(q3-q1)/span*100).toFixed(1)}%"></div>
+          <div class="tr-med" style="left:${pc(med)}%"></div>
+          <div class="tr-now" style="left:${pc(now[m.key])}%"></div>
+        </div>
+        <div class="tr-val">${med} <small>(${a[0]}–${a[a.length-1]})</small></div>`;
+    }).join('');
+    const same = nowGen === gens;
+    trialsOut.innerHTML =
+      `<p class="tr-caption">${runs.length} trials × ${gens} generations, same settings. `
+      + `Bar is the full range, block the middle half, dark tick the median. `
+      + `<span class="now-key">│</span> marks your current run`
+      + (same ? '.' : ` — note it stands at generation ${nowGen}, not ${gens}, so it is not strictly comparable.`)
+      + `</p><div class="tr-grid">${rows}</div>`;
+  }
+
+  function startTrials(){
+    const n = Number(trialCount.value);
+    const gens = Math.max(10, Math.min(2000, Number(trialGens.value)||300));
+    const now = {pop:+statPop.textContent, distinct:+statSpecies.textContent,
+                 symb:+statSymb.textContent, orgs:+statOrg.textContent,
+                 biggest:+statBiggest.textContent};
+    const nowGen = state.gen;
+    const runs = [];
+    trialsBtn.disabled = true;
+    (function slice(){
+      const t0 = performance.now();
+      while(runs.length < n && performance.now()-t0 < 80) runs.push(runTrial(gens));
+      trialsBtn.textContent = `Running… ${runs.length}/${n}`;
+      if(runs.length < n) setTimeout(slice, 0);
+      else {
+        trialsBtn.disabled = false; trialsBtn.textContent = 'Run trials';
+        renderTrials(runs, gens, now, nowGen);
+      }
+    })();
+  }
+  trialsBtn.addEventListener('click', startTrials);
+
+  // Default the trial length to wherever the live run currently stands, so the
+  // marker is comparable without the reader having to notice the mismatch.
+  // Once the field is edited by hand, leave it alone.
+  let trialGensTouched = false;
+  trialGens.addEventListener('input', ()=>{ trialGensTouched = true; });
+  const trialsPanel = trialsBtn.closest('details');
+  trialsPanel.addEventListener('toggle', ()=>{
+    if(trialsPanel.open && !trialGensTouched && state.gen > 0)
+      trialGens.value = Math.max(10, Math.min(2000, state.gen));
+  });
+
   let resizeRaf=null;
   new ResizeObserver(()=>{
     if(resizeRaf) return;
@@ -1369,3 +1523,5 @@
   describeNorms();
 })();
 </script>
+</body>
+</html>
