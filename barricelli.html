@@ -1,0 +1,1371 @@
+<title>Barricelli's Universe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --room:#d8d2c2;
+    --paper:#f4f0e6;
+    --paper-2:#ece4d2;
+    --ink:#2b2620;
+    --ink-faint:#8a7f6c;
+    --rule:#c9c0a8;
+    --spark:#3f8f6b;
+    --highlighter:#c98a1f;
+    --focus:#c98a1f;
+    --font-display:'Spectral', Georgia, 'Times New Roman', serif;
+    --font-body:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono:'Courier Prime', 'Courier New', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --room:#1c1914;
+      --paper:#241f18;
+      --paper-2:#332c22;
+      --ink:#e8e1d0;
+      --ink-faint:#a89d89;
+      --rule:#453e30;
+      --spark:#5cba8f;
+      --highlighter:#e8bd4e;
+      --focus:#e8bd4e;
+    }
+  }
+  :root[data-theme="dark"]{
+    --room:#1c1914;
+    --paper:#241f18;
+    --paper-2:#332c22;
+    --ink:#e8e1d0;
+    --ink-faint:#a89d89;
+    --rule:#453e30;
+    --spark:#5cba8f;
+    --highlighter:#e8bd4e;
+    --focus:#e8bd4e;
+  }
+
+  *{box-sizing:border-box;}
+  body{background:var(--room); color:var(--ink); font-family:var(--font-body);}
+  h1,h2{font-family:var(--font-display); text-wrap:balance; margin:0;}
+  p{margin:0;}
+  button, input, select{font-family:inherit; color:inherit;}
+  ::selection{background:var(--highlighter); color:var(--paper);}
+
+  .app{
+    max-width:1180px; margin:0 auto; padding:32px 20px 64px;
+    display:flex; flex-direction:column; gap:22px;
+  }
+
+  /* ---- header ---- */
+  .record{ display:flex; flex-direction:column; gap:10px; max-width:74ch; }
+  .eyebrow{
+    font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .record h1{ font-size:clamp(28px,4vw,40px); font-weight:600; }
+  .record .sub{ color:var(--ink-faint); font-size:15px; line-height:1.55; }
+
+  /* ---- stage ---- */
+  .stage-wrap{ display:flex; flex-direction:column; gap:14px; min-width:0; }
+  .stage-frame{
+    background:var(--paper); border:1px solid var(--rule); border-radius:6px;
+    padding:14px; box-shadow: 0 1px 0 rgba(0,0,0,.04);
+  }
+  .stage-toolbar{ display:flex; justify-content:flex-end; margin-bottom:10px; }
+  .zoom-control{ width:170px; }
+  .canvas-row{ display:flex; gap:8px; }
+  #ruler{ flex:none; width:34px; display:block; }
+  .canvas-wrap{ flex:1; min-width:0; overflow-x:auto; overflow-y:hidden; border-radius:2px; }
+  .canvas-stack{ position:relative; display:inline-block; line-height:0; }
+  .canvas-stack canvas{ display:block; image-rendering:pixelated; }
+  #overlay{ position:absolute; inset:0; pointer-events:none; }
+  #stack{ cursor:crosshair; }
+
+  .stage-caption{
+    display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:12px; padding-top:12px; border-top:1px dashed var(--rule);
+  }
+  .legend{ display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-faint); }
+  .swatch-strip{ display:flex; gap:2px; }
+  .swatch-strip i{ width:11px; height:13px; display:block; border-radius:1px; }
+  .hl-group{ display:flex; align-items:center; gap:0; }
+  .hl-label{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint); margin-right:7px;
+  }
+  .hl-group button{
+    padding:3px 9px; font-size:11.5px; border-radius:0; border-left-width:0;
+    background:var(--paper-2); position:relative;
+  }
+  .hl-group button .tip{ right:0; bottom:calc(100% + 7px); }
+  .hl-group button:hover .tip, .hl-group button:focus-visible .tip{ display:block; }
+  .hl-group button:first-of-type{ border-left-width:1px; border-radius:4px 0 0 4px; }
+  .hl-group button:last-of-type{ border-radius:0 4px 4px 0; }
+  .hl-group button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  .hint{ font-size:12.5px; color:var(--ink-faint); font-style:italic; }
+  .hint b{ color:var(--highlighter); font-style:normal; font-weight:600; }
+
+  .extinct-note{
+    margin-top:12px; padding:10px 12px; border:1px solid var(--highlighter); border-radius:4px;
+    background:color-mix(in srgb, var(--highlighter) 12%, transparent); font-size:13px; color:var(--ink);
+  }
+  .extinct-note[hidden]{ display:none; }
+  .extinct-note button{ padding:3px 9px; font-size:12px; }
+
+  /* ---- region strip over the record ---- */
+  .region-strip{ display:flex; height:17px; margin-bottom:3px; }
+  .region-strip span{
+    flex:1; font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em;
+    color:var(--ink-faint); text-align:center; line-height:17px;
+    border-left:1px solid var(--rule); background:color-mix(in srgb, var(--rule) 22%, transparent);
+  }
+  .region-strip span:first-child{ border-left:none; }
+  .region-strip span:nth-child(even){ background:transparent; }
+
+  /* ---- tooltips (shared) ---- */
+  .tip{
+    display:none; position:absolute; z-index:30;
+    width:min(330px, 72vw); padding:9px 11px; border-radius:4px; text-align:left;
+    background:var(--ink); color:var(--paper); border:1px solid var(--ink);
+    font-family:var(--font-body); font-weight:400; font-size:12px; line-height:1.5;
+    letter-spacing:normal; text-transform:none; cursor:default;
+    box-shadow:0 4px 14px rgba(0,0,0,.22);
+  }
+  .normref{
+    position:relative; border-bottom:1px dotted var(--highlighter); cursor:help;
+    color:var(--highlighter); font-weight:600; outline-offset:2px;
+  }
+  .normref .tip{ left:0; top:calc(100% + 6px); }
+  .normref:hover .tip, .normref:focus .tip, .normref:focus-visible .tip{ display:block; }
+
+  #injectBtn{ position:relative; }
+  #injectBtn .tip{ left:0; bottom:calc(100% + 7px); font-weight:400; }
+  #injectBtn:hover .tip, #injectBtn:focus-visible .tip{ display:block; }
+
+  .lg-term{ position:relative; border-bottom:1px dotted var(--rule); cursor:help; outline-offset:2px; }
+  .lg-term .tip{ left:0; top:calc(100% + 6px); }
+  .lg-term:hover .tip, .lg-term:focus .tip, .lg-term:focus-visible .tip{ display:block; }
+
+  /* ---- norms dialog ---- */
+  #normsDialog{
+    border:1px solid var(--rule); border-radius:8px; padding:0; max-width:620px; width:calc(100% - 32px);
+    background:var(--paper); color:var(--ink);
+  }
+  #normsDialog::backdrop{ background:rgba(20,16,10,.46); }
+  #normsDialog[open]{ display:flex; flex-direction:column; max-height:calc(100vh - 56px); }
+  .dlg-body{ overflow:auto; }
+  .dlg-head{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:16px 18px 12px; flex:none; border-bottom:1px solid var(--rule);
+  }
+  .dlg-head h2{ font-size:19px; }
+  .dlg-head button{ padding:4px 9px; }
+  .dlg-intro, .dlg-foot{ font-size:13px; line-height:1.6; color:var(--ink-faint); padding:10px 18px 0; max-width:62ch; }
+  .dlg-foot{ padding-bottom:18px; border-top:1px dashed var(--rule); margin-top:14px; padding-top:12px; }
+  .dlg-norms{ padding:12px 18px 0; margin:0; }
+  .dlg-norms dt{
+    font-family:var(--font-mono); font-size:12.5px; letter-spacing:.06em; color:var(--ink);
+    margin-top:12px; font-weight:700;
+  }
+  .dlg-norms dt:first-child{ margin-top:0; }
+  .dlg-norms dd{ margin:3px 0 0 0; font-size:13.5px; line-height:1.55; color:var(--ink-faint); }
+
+  /* ---- teaching stage ---- */
+  .teach-head p{ font-size:13px; color:var(--ink-faint); line-height:1.5; max-width:62ch; }
+  .teach-stage{ width:100%; overflow-x:auto; }
+  .teach-stage svg{ width:100%; min-width:620px; height:auto; display:block; }
+  .teach-say{
+    font-family:var(--font-mono); font-size:12.5px; line-height:1.6; color:var(--ink);
+    background:var(--paper-2); border-left:3px solid var(--highlighter);
+    padding:9px 12px; border-radius:3px; min-height:42px;
+  }
+  .teach-say b{ color:var(--highlighter); }
+  .teach-controls{ display:flex; flex-wrap:wrap; gap:8px; }
+  .teach-controls button{ flex:1; min-width:110px; }
+
+  /* ---- inspector ---- */
+  .inspector{
+    background:var(--paper-2); border:1px solid var(--rule); border-left:3px solid var(--highlighter);
+    border-radius:4px; padding:14px 16px; display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline;
+  }
+  .inspector[hidden]{ display:none; }
+  .inspector dt{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); }
+  .inspector dd{ margin:0 0 8px 0; font-family:var(--font-mono); font-size:14px; font-variant-numeric:tabular-nums; }
+  .inspector .close{ margin-left:auto; align-self:flex-start; }
+
+  /* ---- rail ---- */
+  .panels{ display:flex; flex-direction:column; gap:12px; }
+  .panel{
+    background:var(--paper); border:1px solid var(--rule); border-radius:6px; padding:16px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .panel h2{ font-size:12px; letter-spacing:.1em; text-transform:uppercase; font-family:var(--font-mono); color:var(--ink-faint); font-weight:400; }
+  .row{ display:flex; align-items:center; gap:10px; }
+  label.field{ display:block; font-size:12.5px; line-height:1.4; color:var(--ink-faint); }
+  label.field > input, label.field > select{ display:block; margin-top:5px; }
+  label.field input[type="number"], select{
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:4px; padding:6px 8px;
+    font-family:var(--font-mono); color:var(--ink); width:100%; font-variant-numeric:tabular-nums;
+  }
+  input[type="range"]{ width:100%; accent-color:var(--highlighter); }
+  .field-value{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink); font-size:13px; }
+
+  button{
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:4px;
+    padding:8px 12px; font-size:13px; cursor:pointer; transition:background-color .12s, color .12s;
+  }
+  button:hover{ background:var(--rule); }
+  button.primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  button.primary:hover{ opacity:.88; background:var(--ink); }
+  button:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--focus); outline-offset:2px;
+  }
+  @media (prefers-reduced-motion:reduce){ button{ transition:none; } }
+
+  /* ---- accordions ---- */
+  .acc{ display:block; padding:0; }
+  .acc > summary{
+    list-style:none; cursor:pointer; position:relative;
+    padding:13px 40px 13px 16px;
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint);
+  }
+  .acc > summary::-webkit-details-marker{ display:none; }
+  .acc > summary:hover{ color:var(--ink); background:var(--paper-2); border-radius:5px; }
+  .acc[open] > summary:hover{ border-radius:5px 5px 0 0; }
+  .acc > summary:focus-visible{ outline:2px solid var(--focus); outline-offset:-2px; border-radius:5px; }
+  .acc > summary::after{
+    content:''; position:absolute; right:17px; top:50%; width:7px; height:7px; margin-top:-5px;
+    border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor;
+    transform:rotate(45deg); transition:transform .15s ease;
+  }
+  .acc[open] > summary::after{ transform:rotate(-135deg); margin-top:-2px; }
+  @media (prefers-reduced-motion:reduce){ .acc > summary::after{ transition:none; } }
+  .acc-body{ padding:2px 16px 16px; display:flex; flex-direction:column; gap:12px; }
+
+  /* settings accordions spread across the width instead of stretching one control */
+  .acc-body.spread{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr));
+    gap:14px 26px; align-items:end;
+  }
+  .acc-body.spread > .full{ grid-column:1/-1; }
+  .acc-body.spread > .row.full{ max-width:470px; }
+  .acc-body.ledger-body{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,360px));
+    justify-content:start; gap:10px 34px; align-items:start;
+  }
+
+  /* ---- run panel ---- */
+  .transport{ flex-direction:row; flex-wrap:wrap; align-items:end; gap:14px 22px; }
+  .transport .panel-title{ flex:0 0 100%; }
+  .transport .row{ flex:0 1 300px; }
+  .transport .row button{ flex:1; }
+  .transport .field{ flex:1 1 240px; max-width:380px; }
+
+  .regions{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+  .regions label{ display:flex; flex-direction:column; gap:4px; font-size:10.5px; font-family:var(--font-mono); color:var(--ink-faint); letter-spacing:.06em; }
+  .regions select{ padding:5px 4px; font-size:12px; }
+  .preset-row{ display:flex; gap:6px; }
+  .preset-row button{ flex:1; padding:5px 6px; font-size:11.5px; font-family:var(--font-mono); }
+  .norm-desc{ font-size:12px; color:var(--ink-faint); line-height:1.5; min-height:46px; }
+
+  .field-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .ledger{ display:grid; grid-template-columns:1fr auto; gap:6px 12px; font-family:var(--font-mono); font-size:13px; font-variant-numeric:tabular-nums; }
+  .ledger dt{ color:var(--ink-faint); }
+  .ledger dd{ margin:0; text-align:right; }
+  #sparkCanvas{ width:100%; max-width:360px; height:44px; display:block; margin-top:6px; }
+
+  /* ---- footer notes ---- */
+  .notes-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:24px 32px; }
+  @media (max-width:720px){ .notes-grid{ grid-template-columns:1fr; } }
+  .notes p{ font-size:14px; line-height:1.65; color:var(--ink); max-width:60ch; }
+  .notes p + p{ margin-top:10px; }
+  .norm-defs dt{ font-family:var(--font-mono); font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-top:10px; }
+  .norm-defs dt:first-child{ margin-top:0; }
+  .norm-defs dd{ margin:2px 0 0 0; font-size:13.5px; color:var(--ink-faint); line-height:1.5; }
+  .cite{ margin-top:16px; font-size:12px; color:var(--ink-faint); font-style:italic; }
+  .notes code{ font-family:var(--font-mono); font-size:13px; }
+</style>
+
+<div class="app">
+  <header class="record">
+    <div class="eyebrow">Numerical evolution — after N. A. Barricelli, 1953–57</div>
+    <h1>Barricelli's Universe</h1>
+    <p class="sub">In 1953, on the IAS computer at Princeton, Nils Aall Barricelli seeded a strip of numbers and watched them reproduce, cross, parasitize and mutate. Instead of using a "fitness function" analogous to natural selection, he programmed his universe so that numbers could come together and help each other survive. Each row below is one generation.</p>
+  </header>
+
+  <main class="stage-wrap">
+    <div class="stage-frame">
+      <div class="stage-toolbar">
+        <label class="field zoom-control">
+          Zoom — <span class="field-value" id="zoomVal">1.0×</span>
+          <input type="range" id="zoomRange" min="1" max="5" step="0.5" value="1">
+        </label>
+      </div>
+      <div class="canvas-row">
+        <canvas id="ruler" aria-hidden="true"></canvas>
+        <div class="canvas-wrap">
+          <div class="region-strip" id="regionStrip" aria-hidden="true"></div>
+          <div class="canvas-stack">
+            <canvas id="stack" aria-label="Generation stack: each row is one generation, scrolling upward as the universe advances"></canvas>
+            <canvas id="overlay"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="extinct-note" id="extinctNote" hidden>
+        The universe has gone empty. <button id="extinctReset">Reset</button> to reseed it.
+      </div>
+      <div class="stage-caption">
+        <div class="legend">
+          <span class="swatch-strip" id="swatchStrip" aria-hidden="true"></span>
+          <span id="legendText">color = which number a gene is</span>
+        </div>
+        <div class="hl-group" role="group" aria-label="Highlight">
+          <span class="hl-label">show</span>
+          <button data-hl="all" aria-pressed="true">everything</button>
+          <button data-hl="symb" aria-pressed="false">symbionts<span class="tip" aria-hidden="true">Genes locked in <b>mutual</b> dependence: A reads B's value to earn an extra copy, and B reads A's. Neither reproduces as well without the other. A connected run of them is one <b>organism</b> — Barricelli's symbioorganism — so the ledger counts the cells and the organisms separately.</span></button>
+          <button data-hl="par" aria-pressed="false">parasites<span class="tip" aria-hidden="true">Genes that read a neighbor to earn an extra copy while that neighbor gets nothing back. The dependency runs <b>one way only</b>. A cell counts here when it has at least one such link and no mutual one.</span></button>
+          <button data-hl="org" aria-pressed="false">organisms<span class="tip" aria-hidden="true">Colors each cell by <b>which organism</b> it belongs to, followed from one generation to the next, so you can watch a body persist, split or die. Everything outside an organism drops away. Roughly three quarters of organisms last a single generation, so each one is drawn <b>more solidly the longer it survives</b> — the faint speckle is churn, the solid bands are the ones that endure.</span></button>
+        </div>
+        <span class="hint">Click a cell to trace its <b>ancestry</b>. Zoom in to scroll sideways.</span>
+      </div>
+    </div>
+
+    <dl class="inspector" id="inspector" hidden>
+      <button class="close" id="inspectorClose" aria-label="Close inspector">✕</button>
+      <div><dt>Value</dt><dd id="insValue">—</dd></div>
+      <div><dt>Position</dt><dd id="insPos">—</dd></div>
+      <div><dt>Generation</dt><dd id="insGen">—</dd></div>
+      <div><dt>Lineage</dt><dd id="insTrace">—</dd></div>
+    </dl>
+
+  </main>
+
+  <section class="panels">
+    <div class="panel transport">
+      <h2 class="panel-title">Run</h2>
+      <div class="row">
+        <button class="primary" id="playBtn" style="flex:2">Run</button>
+        <button id="stepBtn">Step</button>
+      </div>
+      <label class="field">
+        Speed — <span class="field-value" id="speedVal">6</span> gen/s
+        <input type="range" id="speedRange" min="1" max="30" value="6">
+      </label>
+    </div>
+
+    <details class="panel acc">
+      <summary>Universe</summary>
+      <div class="acc-body spread">
+        <label class="field">
+          Copies per gene — <span class="field-value" id="reproVal">2</span> extra
+          <input type="range" id="reproRange" min="0" max="4" step="1" value="2">
+        </label>
+        <div class="field-grid">
+          <label class="field">Array size
+            <input type="number" id="sizeInput" min="64" max="512" step="1" value="511">
+          </label>
+          <label class="field">Seed range ±
+            <input type="number" id="kInput" min="4" max="40" step="1" value="18">
+          </label>
+        </div>
+        <label class="field">
+          Seed density — <span class="field-value" id="densityVal">100</span>%
+          <input type="range" id="densityRange" min="5" max="100" value="100">
+        </label>
+        <div class="row full">
+          <button id="injectBtn" style="flex:1">Inject organism<span class="tip" aria-hidden="true">Drops the five-cell pattern <b>4, 1, −1, ·, −4</b> into the current generation at a random spot (the · is an empty cell). The 4 and the −4 read each other, and so do the 1 and the −1 — two mutually dependent pairs, so the ledger counts all four genes as symbiont cells. Left alone in an empty universe it spreads steadily, where a <em>single</em> gene with no neighbors to read would copy itself to one new place each generation and never number more than one.</span></button>
+          <button id="resetBtn" style="flex:1">Reset</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel acc">
+      <summary>Norms by region</summary>
+      <div class="acc-body spread">
+        <div class="preset-row">
+          <button data-preset="bbaa">BBAA</button>
+          <button data-preset="adad">ADAD</button>
+          <button data-preset="aaaa">AAAA</button>
+          <button data-preset="zero">Zero</button>
+        </div>
+        <div class="regions">
+          <label>Q1<select data-q="0"></select></label>
+          <label>Q2<select data-q="1"></select></label>
+          <label>Q3<select data-q="2"></select></label>
+          <label>Q4<select data-q="3"></select></label>
+        </div>
+        <p class="norm-desc full" id="normDesc"></p>
+        <div class="row full"><button id="normsBtn2">All norms ↗</button></div>
+      </div>
+    </details>
+
+    <details class="panel acc" open>
+      <summary>Ledger</summary>
+      <div class="acc-body ledger-body">
+        <dl class="ledger">
+          <dt><span class="lg-term" tabindex="0">Generation<span class="tip">How many rows have been written since the universe was seeded. The record shows the most recent stretch of them, numbered down its left edge.</span></span></dt><dd id="statGen">0</dd>
+          <dt><span class="lg-term" tabindex="0">Population<span class="tip">How many cells currently hold a gene rather than standing empty, out of the array size set below.</span></span></dt><dd id="statPop">0</dd>
+          <dt><span class="lg-term" tabindex="0">Distinct genes<span class="tip">How many different numbers are present. Color is keyed to value, so this is roughly how many colors you can see — it usually falls sharply as a few values take over the universe.</span></span></dt><dd id="statSpecies">0</dd>
+          <dt><span class="lg-term" tabindex="0">Symbiont cells<span class="tip">Cells with at least one <b>mutual</b> partner: this cell reads a neighbor's value to earn an extra copy, and that neighbor reads this one's. Neither reproduces as well alone.</span></span></dt><dd id="statSymb">0</dd>
+          <dt><span class="lg-term" tabindex="0">Parasite cells<span class="tip">Cells that read a neighbor to earn an extra copy while giving nothing back, and that have no mutual partner of their own. The dependency runs one way only.</span></span></dt><dd id="statPar">0</dd>
+          <dt><span class="lg-term" tabindex="0">Organisms<span class="tip">Connected clusters of mutually-dependent cells — Barricelli's <em>symbioorganisms</em>. Several symbiont cells normally make up a single organism, so this number is much smaller than the count above.</span></span></dt><dd id="statOrg">0</dd>
+          <dt><span class="lg-term" tabindex="0">Largest organism<span class="tip">How many cells are in the biggest single cluster of mutual dependence. A high number means one large cooperative body rather than many small ones.</span></span></dt><dd id="statBiggest">0</dd>
+          <dt><span class="lg-term" tabindex="0">Oldest organism<span class="tip">How many generations the longest-surviving organism has held together. Most organisms last a single generation; a few persist for hundreds, and those are the ones worth watching. The <em>organisms</em> view draws each one more solidly the longer it has survived.</span></span></dt><dd id="statOldest">—</dd>
+        </dl>
+        <canvas id="sparkCanvas" width="272" height="44"></canvas>
+      </div>
+    </details>
+
+    <details class="panel acc acc-wide">
+      <summary>How one generation is built</summary>
+      <div class="acc-body">
+        <header class="teach-head">
+          <p>See how an existing generation gives rise to a new generation in this small universe, slowed down. The top row is the generation we're reading; the bottom row is the one being written. When two different numbers land on the same cell, a <em>norm</em> invents a replacement out of the empty space around it — measuring how far you must walk left and right in the row above to reach the nearest genes. Those two distances are <em>v</em> and <em>u</em>, and they appear as green calipers when it happens. A dotted line always joins the cell just written to the cell <em>directly above</em> it: that is the cell the rule consults, both to settle a collision and to decide where the gene copies next.</p>
+        </header>
+        <div class="teach-stage">
+          <svg id="teachSvg" viewBox="0 0 880 292" role="img" aria-label="Step-by-step diagram of one generation being written"></svg>
+        </div>
+        <p class="teach-say" id="teachSay">—</p>
+        <div class="teach-controls">
+          <button class="primary" id="teachNext">Next step</button>
+          <button id="teachPlay">Play</button>
+          <button id="teachGen">Skip to next generation</button>
+          <button id="teachReset">New universe</button>
+          <button id="normsBtn">All norms ↗</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel acc acc-wide">
+      <summary>Field notes</summary>
+      <div class="acc-body notes">
+        <div class="notes-grid">
+          <div>
+            <p>Every cell holds a signed integer — a "gene" — or nothing at all. Each generation is written fresh from the one above it. A gene at position <code>a</code> holding value <code>n</code> writes a copy of itself one row down at position <code>a+n</code>: the sign sets direction, the magnitude sets distance. It does not stay where it was. For that reason, a cell’s "lineage" will appear as a diagonal.</p>
+            <p>Then the part Barricelli cared about: the gene now looks at the cell it landed <em>on</em> — as that cell stood in the row above — and if something is there, it copies itself again, traveling this time by that cell’s value instead of its own, up to the "copies per gene" limit. Every one of those copies sets out afresh from the gene’s <em>original</em> position, so a gene with other genes nearby scatters a small fan of offspring rather than continuing on in a line. The result is that a lone number can only ever step by itself, but a number with others nearby can be carried to places it could never reach alone. This is the dependency behind what Barricelli called a <em>symbioorganism</em> — a cooperating run of genes. To see why this is important, try setting "copies per gene" (in the "Universe" panel) to zero: a universe of several hundred slides steadily downward — a few dozen left by generation fifty, a handful by generation one hundred — and never recovers.</p>
+            <p>That dependency is also what lets the simulation develop <em>organisms</em>. A gene only earns its extra copies by reading some neighbor’s value, and where A reads B <em>and</em> B reads A, the two need each other — <em>symbiosis</em>. Where A reads B but B never reads A, A gains and B gains nothing — <em>parasitism</em>. A connected run of mutual readers is one <em>organism</em>; the ledger counts the symbiont cells and the organisms they form separately, and the <em>show</em> switch under the record dims everything else so you can see where each kind lives. They tend to hold different ground rather than mixing evenly — symbionts gather into coherent bands, parasites fill the spaces between.</p>
+            <p>But there’s more. What should happen when two different values land on the same cell? That’s where <em>norms</em> come in. The simplest norm (norm zero) is to have that cell become empty — no offspring is created. Four other norms (named A, B, C and D) create a new value for that cell, based on the cell at the same position <em>above</em> it in the previous generation. If something already occupies it there is no room to measure, and most norms simply empty the cell. If it is empty, they measure the gaps <code>u</code> and <code>v</code> out to the nearest occupied cells right and left in the row above, and build a number from those two distances. (An explanation of each norm can be found below or to the right of this text.)</p>
+            <p>Norms A and B each calculate a new value based on the <em>sum</em> of distances from an empty cell to the nearest cells left and right of it, and that has an important consequence. Every empty cell lying in the same gap measures the same <code>u+v</code>, because one distance grows exactly as fast as the other shrinks — between genes at <code>L</code> and <code>R</code>, any cell in between gives <code>u+v = R−L</code>. So norms A and B paint an entire gap one flat value. Norm C, on the other hand, <em>subtracts</em> the gaps instead of adding them, which results in a gradient across it. That is where the broad coherent fields of color in the record come from.</p>
+            <p>Barricelli ran different norms in different regions of the same universe, so that organisms drifting across a boundary met different rules and had to keep adapting; the four quarter selectors reproduce that, and the strip above the record marks where the boundaries fall. You can change which norm applies to which quadrant in the "Norms by region" panel.</p>
+          </div>
+          <dl class="norm-defs">
+            <dt>A</dt><dd>New value is <code>u+v</code> — the two gaps added — kept positive if the flanking genes share a sign, negated if they disagree. A collision landing under an occupied cell empties instead.</dd>
+            <dt>B</dt><dd>As A, but <code>u+v−1</code>. A single unit of difference that changes the character of the whole field.</dd>
+            <dt>C</dt><dd><code>v−u</code>: the difference of the gaps rather than their sum, so the value reports which side is closer.</dd>
+            <dt>D</dt><dd>A mirror test, and the only norm that ignores the gaps. With <code>p</code> the value directly above, compare the two cells <code>p</code> steps to either side; if both hold the same value <code>m</code>, the cell becomes <code>2m−p</code>, otherwise it empties.</dd>
+            <dt>0</dt><dd>Every collision simply empties the cell — the plainest norm, and the one that kills the most.</dd>
+          </dl>
+        </div>
+        <p class="cite">Rules follow Alexander R. Galloway's reading of Barricelli's 1957 paper (his Processing reimplementation, <em>cultureandcommunication.org/galloway/Barricelli</em>), which works from the original norms and their regional assignment. See also Barricelli, N. A., "Numerical Testing of Evolution Theories," <em>Acta Biotheoretica</em> 16 (1962/1963).</p>
+      </div>
+    </details>
+  </section>
+
+    <dialog id="normsDialog">
+      <div class="dlg-head">
+        <h2>The norms</h2>
+        <button id="normsClose" aria-label="Close">✕</button>
+      </div>
+      <div class="dlg-body">
+        <p class="dlg-intro">When two different numbers land on the same cell, a <em>norm</em> decides what ends up there. None of them simply pick a winner — they invent a new value out of the local neighborhood in the row above. <b>u</b> is the distance rightward from the cell directly above the collision to the nearest gene; <b>v</b> is the distance leftward.</p>
+        <dl class="dlg-norms" id="dlgNorms"></dl>
+        <p class="dlg-foot">Barricelli ran <em>different norms in different regions of the same universe</em>, so that organisms drifting across a boundary met different rules and had to keep adapting. The four quarter selectors set which norm governs which quarter.</p>
+      </div>
+    </dialog>
+</div>
+<script>
+(function(){
+  "use strict";
+  const STAGE_HEIGHT_PX = 640;
+  let CELL = 4;
+  let VISIBLE_ROWS = 160;
+  const HISTORY_CAP = 400;
+
+  const NORM_LETTERS = ['a','b','c','d','zero'];
+  const NORM_NAME = {a:'A', b:'B', c:'C', d:'D', zero:'0'};
+  const NORM_TEXT = {
+    a: "A — new value is u+v, the two gaps added, signed by whether the flanking genes agree.",
+    b: "B — as A, but u+v−1.",
+    c: "C — v−u, the difference of the gaps rather than their sum.",
+    d: "D — mirror test at ±p; if both matched cells hold the same value m, the cell becomes 2m−p, otherwise it empties.",
+    zero: "0 — every collision simply empties the cell."
+  };
+  const PRESETS = { bbaa:['b','b','a','a'], adad:['a','d','a','d'], aaaa:['a','a','a','a'], zero:['zero','zero','zero','zero'] };
+  const NORM_TIP = {
+    a: "Adds the two gaps: <b>u+v</b>. The result stays positive if the two flanking genes agree in sign, and flips negative if they disagree. If the cell directly above the collision is already occupied, there is no space to measure and the cell empties instead.",
+    b: "Adds the two gaps and subtracts one: <b>u+v−1</b>, signed by whether the flanking genes agree. A single unit of difference from A, which changes the character of the whole field. Empties if the cell directly above is occupied.",
+    c: "Subtracts the gaps: <b>v−u</b>, so the new value reports which side is closer rather than how much room there is. Empties if the cell directly above is occupied.",
+    d: "A mirror test, and the only norm that ignores the gaps entirely. With <b>p</b> the value directly above the collision, compare the two cells <b>p</b> steps to either side; if both hold the same value <b>m</b>, the cell becomes <b>2m−p</b>. If they differ, it empties.",
+    zero: "Every collision simply empties the cell — the plainest norm, and the one that kills the most."
+  };
+  const normRef = l => `<span class="normref" tabindex="0">Norm ${NORM_NAME[l]}<span class="tip">${NORM_TIP[l]}</span></span>`;
+
+  const state = {
+    size: 511, K: 18, density: 100, zoom: 1, maxRepro: 2, highlight: 'all',
+    regions: ['b','b','a','a'],
+    current: null, gen: 0, running: false, speed: 6,
+    history: [], popHistory: [], speciesHistory: [],
+    orgPrev: [], orgIds: [], orgAge: new Map(), orgNextId: 0
+  };
+
+  const stack = document.getElementById('stack');
+  const sctx = stack.getContext('2d');
+  const overlay = document.getElementById('overlay');
+  const octx = overlay.getContext('2d');
+  const canvasWrap = document.querySelector('.canvas-wrap');
+  const ruler = document.getElementById('ruler');
+  const rctx = ruler.getContext('2d');
+  const zoomRange = document.getElementById('zoomRange');
+  const zoomVal = document.getElementById('zoomVal');
+  const sparkCanvas = document.getElementById('sparkCanvas');
+  const sparkCtx = sparkCanvas.getContext('2d');
+
+  const playBtn = document.getElementById('playBtn');
+  const stepBtn = document.getElementById('stepBtn');
+  const speedRange = document.getElementById('speedRange');
+  const speedVal = document.getElementById('speedVal');
+  const sizeInput = document.getElementById('sizeInput');
+  const kInput = document.getElementById('kInput');
+  const densityRange = document.getElementById('densityRange');
+  const densityVal = document.getElementById('densityVal');
+  const reproRange = document.getElementById('reproRange');
+  const reproVal = document.getElementById('reproVal');
+  const injectBtn = document.getElementById('injectBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const normDesc = document.getElementById('normDesc');
+  const regionStrip = document.getElementById('regionStrip');
+  const swatchStrip = document.getElementById('swatchStrip');
+  const statGen = document.getElementById('statGen');
+  const statPop = document.getElementById('statPop');
+  const statSpecies = document.getElementById('statSpecies');
+  const statSymb = document.getElementById('statSymb');
+  const statPar = document.getElementById('statPar');
+  const statOrg = document.getElementById('statOrg');
+  const statBiggest = document.getElementById('statBiggest');
+  const statOldest = document.getElementById('statOldest');
+  const showRoleStats = (r, oldest) => {
+    statSymb.textContent = r.symb;
+    statPar.textContent = r.par;
+    statOrg.textContent = r.clusters;
+    statBiggest.textContent = r.biggest;
+    if(oldest!==undefined) statOldest.textContent = oldest ? oldest + (oldest===1?' gen':' gens') : '—';
+  };
+  const inspector = document.getElementById('inspector');
+  const insValue = document.getElementById('insValue');
+  const insPos = document.getElementById('insPos');
+  const insGen = document.getElementById('insGen');
+  const insTrace = document.getElementById('insTrace');
+  const inspectorClose = document.getElementById('inspectorClose');
+  const extinctNote = document.getElementById('extinctNote');
+  const extinctReset = document.getElementById('extinctReset');
+  let wasAlive = true;
+
+  function palette(){
+    const cs = getComputedStyle(document.documentElement);
+    const g = n => cs.getPropertyValue(n).trim();
+    return { paper:g('--paper'), ink:g('--ink'), inkFaint:g('--ink-faint'),
+             rule:g('--rule'), highlighter:g('--highlighter') };
+  }
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    if(hex.length===3) hex = hex.split('').map(c=>c+c).join('');
+    const n = parseInt(hex,16);
+    return [(n>>16)&255,(n>>8)&255,n&255];
+  }
+  function isDark(pal){
+    const [r,g,b] = hexToRgb(pal.paper);
+    return (0.2126*r + 0.7152*g + 0.0722*b) < 128;
+  }
+
+  // A colored-pencil set: hue identifies which number a gene is. Barricelli
+  // annotated his printouts by hand in pencil; this keeps that register.
+  const HUES = [6,20,32,44,56,70,84,100,116,132,148,164,178,192,204,216,228,240,252,266,280,296,312,332];
+  function colorForValue(v, dark){
+    if(v===0) return null;
+    // stride by a number coprime with the table length so that neighboring
+    // values land on distant hues — adjacent genes must not look alike
+    const idx = ((v*7 % HUES.length) + HUES.length) % HUES.length;
+    const h = HUES[idx];
+    const s = dark ? 52 : 46;
+    const l = dark ? (v>0 ? 63 : 52) : (v>0 ? 45 : 36);
+    return `hsl(${h} ${s}% ${l}%)`;
+  }
+
+  // organisms get their own hue cycle, keyed to identity rather than value
+  function colorForOrg(id, dark){
+    const h = HUES[((id*11 % HUES.length) + HUES.length) % HUES.length];
+    return `hsl(${h} ${dark?58:54}% ${dark?62:44}%)`;
+  }
+
+  function countNonZero(a){ let c=0; for(let i=0;i<a.length;i++) if(a[i]!==0) c++; return c; }
+  function countSpecies(a){ const s=new Set(); for(let i=0;i<a.length;i++) if(a[i]!==0) s.add(a[i]); return s.size; }
+  function randGene(K){ return Math.floor(Math.random()*(2*K+1)) - K; }
+
+  // ---------- simulation: Barricelli 1957, per Galloway's reading ----------
+  function wrap(i,size){ i = i % size; if(i<0) i += size; return i; }
+
+  // gap to the nearest occupied cell, right and left, in the row above
+  function gapRight(cur,size,a){ let u=0,guard=0; while(cur[wrap(a+u,size)]===0){ u++; if(++guard>size) return 0; } return u; }
+  function gapLeft(cur,size,a){ let v=0,guard=0; while(cur[wrap(a-v,size)]===0){ v++; if(++guard>size) return 0; } return v; }
+  const sameSign = (A,B) => (A>0&&B>0) || (A<0&&B<0);
+
+  function applyNorm(letter, cur, next, size, a){
+    if(letter==='zero'){ next[a]=0; return; }
+    if(letter==='d'){
+      const P = cur[a], A = cur[wrap(a+P,size)], B = cur[wrap(a-P,size)];
+      next[a] = (A!==B) ? 0 : (-P + 2*A);
+      return;
+    }
+    if(cur[a]!==0){ next[a]=0; return; }      // collision under an occupied cell
+    const u = gapRight(cur,size,a), v = gapLeft(cur,size,a);
+    const U = cur[wrap(a+u,size)], V = cur[wrap(a-v,size)];
+    if(letter==='c'){ next[a] = v-u; return; }
+    const s = (letter==='b') ? (u+v-1) : (u+v);
+    next[a] = sameSign(U,V) ? s : -s;
+  }
+
+  function normForColumn(a,size){
+    return state.regions[Math.min(3, Math.floor(a / (size/4)))];
+  }
+
+  // One gene writes itself into the next row by its own value, then again by
+  // whichever neighbor it came to rest beside, up to maxRepro extra times.
+  function placeGene(cur,next,parent,size,X,Xa,delta,nrep){
+    if(X===0) return;
+    const Na = wrap(Xa+delta,size);
+    const occupant = next[Na];
+    if(occupant!==0 && occupant!==X){
+      applyNorm(normForColumn(Na,size), cur, next, size, Na);
+      parent[Na] = -2;
+    } else {
+      next[Na] = X;
+      parent[Na] = Xa;
+    }
+    const Y = cur[Na];
+    if(Y!==0 && nrep+1 <= state.maxRepro) placeGene(cur,next,parent,size,X,Xa,Y,nrep+1);
+  }
+
+  function stepOnce(){
+    const size = state.size, cur = state.current;
+    const next = new Int16Array(size);
+    const parent = new Int16Array(size).fill(-1);
+
+    for(let j=0;j<size;j++){
+      const X = cur[j];
+      if(X!==0) placeGene(cur,next,parent,size,X,j,X,0);
+    }
+
+    state.current = next;
+    state.gen += 1;
+    const roles = analyzeRoles(next, size, state.maxRepro);
+    const org = trackOrganisms(roles.comps, size);
+    const entry = {gen: state.gen, values: next, parent, roles: roles.roles,
+                   orgId: org.cellId, orgAge: org.cellAge};
+    state.history.push(entry);
+    if(state.history.length > HISTORY_CAP) state.history.shift();
+
+    const pop = countNonZero(next), species = countSpecies(next);
+    state.popHistory.push(pop); state.speciesHistory.push(species);
+    if(state.popHistory.length > 240){ state.popHistory.shift(); state.speciesHistory.shift(); }
+
+    appendGenerationRow(entry);
+    statGen.textContent = state.gen;
+    statPop.textContent = pop;
+    statSpecies.textContent = species;
+    showRoleStats(roles, org.oldest);
+    drawSparkline();
+    drawRuler();
+
+    if(pop===0 && wasAlive){ wasAlive=false; extinctNote.hidden=false; pause(); }
+    else if(pop>0){ wasAlive=true; extinctNote.hidden=true; }
+  }
+
+  // ---------- who depends on whom ----------
+  // A gene only makes its extra copies by reading a neighbor's value. If A reads B
+  // and B reads A, the two are mutually dependent — symbiosis. If A reads B but B
+  // does not read A, A gains and B gains nothing — parasitism.
+  function analyzeRoles(cur, size, maxRepro){
+    const dep = new Array(size);
+    for(let a=0;a<size;a++){
+      if(cur[a]===0) continue;
+      let delta=cur[a], r=0, set=null;
+      for(;;){
+        const Na = wrap(a+delta,size), Y = cur[Na];
+        if(Y!==0 && r+1<=maxRepro){ (set||(set=new Set())).add(Na); delta=Y; r++; }
+        else break;
+      }
+      if(set) dep[a]=set;
+    }
+    const roles = new Uint8Array(size);          // bit 1 = symbiont, bit 2 = parasite
+    const adj = new Map();
+    let pairs=0;
+    for(let a=0;a<size;a++){
+      const set = dep[a]; if(!set) continue;
+      set.forEach(b=>{
+        const back = dep[b];
+        if(back && back.has(a)){
+          roles[a]|=1; roles[b]|=1;
+          if(a<b){
+            pairs++;
+            if(!adj.has(a)) adj.set(a,[]);
+            if(!adj.has(b)) adj.set(b,[]);
+            adj.get(a).push(b); adj.get(b).push(a);
+          }
+        } else roles[a]|=2;
+      });
+    }
+    const seen=new Set(); let biggest=0; const comps=[];
+    adj.forEach((_,k)=>{
+      if(seen.has(k)) return;
+      let q=[k]; const mem=[]; seen.add(k);
+      while(q.length){ const x=q.pop(); mem.push(x); (adj.get(x)||[]).forEach(y=>{ if(!seen.has(y)){ seen.add(y); q.push(y); } }); }
+      comps.push(new Set(mem));
+      if(mem.length>biggest) biggest=mem.length;
+    });
+    let symb=0, par=0;
+    for(let i=0;i<size;i++){ if(roles[i]&1) symb++; else if(roles[i]&2) par++; }
+    return {roles, symb, par, pairs, clusters:comps.length, biggest, comps};
+  }
+
+  // ---------- organisms followed through time ----------
+  // Components are recomputed from scratch every generation, so this generation's
+  // third cluster has no inherent relation to last generation's third cluster.
+  // Match them by overlap instead: when most of the smaller set is shared, the
+  // organism keeps its identity and goes on ageing.
+  //
+  // Measured on a settled universe, ~85% of organisms carry over this way — but
+  // about three quarters of all organisms that ever appear live for a single
+  // generation, while a handful survive for hundreds. Age is therefore the only
+  // thing that separates a real symbioorganism from a one-generation flicker,
+  // which is why the record draws it as weight rather than colouring every
+  // cluster alike.
+  function trackOrganisms(comps, size){
+    const prev = state.orgPrev, prevIds = state.orgIds, ages = state.orgAge;
+    const ids = new Array(comps.length).fill(-1);
+    const taken = new Set();
+    for(let i=0;i<comps.length;i++){
+      let best=-1, bestOverlap=0;
+      for(let j=0;j<prev.length;j++){
+        if(taken.has(j)) continue;
+        let o=0; comps[i].forEach(x=>{ if(prev[j].has(x)) o++; });
+        if(o>bestOverlap){ bestOverlap=o; best=j; }
+      }
+      if(best>=0 && bestOverlap/Math.min(comps[i].size, prev[best].size) >= 0.5){
+        ids[i] = prevIds[best]; taken.add(best);
+      }
+    }
+    const nextAge = new Map();
+    for(let i=0;i<comps.length;i++){
+      if(ids[i]<0) ids[i] = state.orgNextId++;
+      nextAge.set(ids[i], (ages.get(ids[i])||0) + 1);
+    }
+    const cellId = new Int32Array(size).fill(-1);
+    const cellAge = new Uint16Array(size);
+    comps.forEach((c,i)=>{
+      const age = Math.min(65535, nextAge.get(ids[i]));
+      c.forEach(x=>{ cellId[x]=ids[i]; cellAge[x]=age; });
+    });
+    state.orgPrev = comps; state.orgIds = ids; state.orgAge = nextAge;
+    let oldest=0; nextAge.forEach(v=>{ if(v>oldest) oldest=v; });
+    return {cellId, cellAge, oldest};
+  }
+  function resetOrganismTracking(){
+    state.orgPrev=[]; state.orgIds=[]; state.orgAge=new Map(); state.orgNextId=0;
+  }
+
+  function freshUniverse(size, density, K){
+    const arr = new Int16Array(size);
+    for(let i=0;i<size;i++) if(Math.random()*100 < density) arr[i] = randGene(K);
+    return arr;
+  }
+
+  // ---------- rendering ----------
+  function applyZoom(){
+    const wrapW = canvasWrap.clientWidth || 600;
+    // how many CSS pixels one cell occupies on screen; at 1x the array exactly fills the frame
+    const displayCell = (wrapW / state.size) * state.zoom;
+    CELL = Math.max(1, Math.round(displayCell));
+    VISIBLE_ROWS = Math.min(HISTORY_CAP-10, Math.max(20, Math.floor(STAGE_HEIGHT_PX / displayCell)));
+    stack.width = state.size*CELL; stack.height = VISIBLE_ROWS*CELL;
+    overlay.width = stack.width; overlay.height = stack.height;
+    const cssW = Math.round(state.size*displayCell)+'px';
+    const cssH = Math.round(VISIBLE_ROWS*displayCell)+'px';
+    stack.style.width = overlay.style.width = cssW;
+    stack.style.height = overlay.style.height = cssH;
+    regionStrip.style.width = cssW;
+    redrawFromHistory();
+    hideInspector();
+    syncRulerSize();
+    drawRuler();
+  }
+  function clearToPaper(){
+    const pal = palette();
+    sctx.fillStyle = pal.paper;
+    sctx.fillRect(0,0,stack.width, stack.height);
+  }
+  function paintRow(rowFromTop, entry){
+    const pal = palette(), dark = isDark(pal);
+    const y = rowFromTop*CELL;
+    sctx.fillStyle = pal.paper;
+    sctx.fillRect(0,y,stack.width,CELL);
+    const values = entry.values;
+
+    if(state.highlight==='org'){
+      const ids = entry.orgId, ages = entry.orgAge;
+      for(let i=0;i<values.length;i++){
+        if(values[i]===0) continue;
+        const id = ids ? ids[i] : -1;
+        if(id < 0){                       // not in any organism — barely there
+          sctx.globalAlpha = 0.08;
+          sctx.fillStyle = pal.inkFaint;
+        } else {
+          // weight by survival, so a one-generation flicker stays faint and a
+          // long-lived organism reads as solid
+          const w = Math.min(1, Math.log2(1 + ages[i]) / 4);
+          sctx.globalAlpha = 0.2 + 0.8*w;
+          sctx.fillStyle = colorForOrg(id, dark);
+        }
+        sctx.fillRect(i*CELL, y, CELL, CELL);
+      }
+      sctx.globalAlpha = 1;
+      return;
+    }
+
+    const want = state.highlight==='symb' ? 1 : state.highlight==='par' ? 2 : 0;
+    const roles = entry.roles;
+    for(let i=0;i<values.length;i++){
+      const v = values[i];
+      if(v===0) continue;
+      if(want && roles){
+        const hit = want===1 ? (roles[i]&1) : ((roles[i]&2) && !(roles[i]&1));
+        sctx.globalAlpha = hit ? 1 : 0.12;
+      }
+      sctx.fillStyle = colorForValue(v, dark);
+      sctx.fillRect(i*CELL, y, CELL, CELL);
+    }
+    sctx.globalAlpha = 1;
+  }
+  function appendGenerationRow(entry){
+    sctx.drawImage(stack, 0, CELL, stack.width, stack.height-CELL, 0, 0, stack.width, stack.height-CELL);
+    paintRow(VISIBLE_ROWS-1, entry);
+  }
+  function redrawFromHistory(){
+    clearToPaper();
+    const hist = state.history;
+    const n = Math.min(VISIBLE_ROWS, hist.length);
+    const start = hist.length - n;
+    for(let k=0;k<n;k++) paintRow(VISIBLE_ROWS - n + k, hist[start+k]);
+  }
+
+  function syncRulerSize(){
+    const cssH = stack.getBoundingClientRect().height || 1;
+    ruler.style.height = cssH + 'px';
+    const dpr = window.devicePixelRatio || 1;
+    ruler.width = Math.max(1, Math.round((ruler.clientWidth||34)*dpr));
+    ruler.height = Math.max(1, Math.round(cssH*dpr));
+    rctx.setTransform(dpr,0,0,dpr,0,0);
+  }
+  function drawRuler(){
+    const pal = palette();
+    const w = ruler.clientWidth||34, h = ruler.clientHeight||1;
+    rctx.clearRect(0,0,w,h);
+    rctx.font = '9px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-mono');
+    rctx.fillStyle = pal.inkFaint;
+    rctx.textAlign = 'right'; rctx.textBaseline = 'middle';
+    const rowH = h / VISIBLE_ROWS;
+    const steps = [1,2,5,10,20,25,50,100,200,500,1000];
+    const step = steps.find(s=>s>=Math.max(1,28/rowH)) || 1000;
+    for(let r=0;r<VISIBLE_ROWS;r++){
+      const gen = state.gen - (VISIBLE_ROWS-1-r);
+      if(gen<0 || gen%step!==0) continue;
+      rctx.fillText(String(gen), w-5, (r+0.5)*rowH);
+    }
+  }
+
+  function drawSparkline(){
+    const pal = palette();
+    const w = sparkCanvas.width, h = sparkCanvas.height;
+    sparkCtx.clearRect(0,0,w,h);
+    sparkCtx.strokeStyle = pal.rule; sparkCtx.lineWidth = 1;
+    sparkCtx.beginPath(); sparkCtx.moveTo(0,h-0.5); sparkCtx.lineTo(w,h-0.5); sparkCtx.stroke();
+    const data = state.popHistory;
+    if(data.length<2) return;
+    const maxV = Math.max(state.size*0.6, ...data, 1);
+    const stepX = w/Math.max(1,data.length-1);
+    sparkCtx.beginPath();
+    data.forEach((v,i)=>{
+      const x=i*stepX, y=h-(v/maxV)*h;
+      if(i===0) sparkCtx.moveTo(x,y); else sparkCtx.lineTo(x,y);
+    });
+    sparkCtx.strokeStyle = pal.ink; sparkCtx.lineWidth = 1.5; sparkCtx.stroke();
+    sparkCtx.lineTo(w,h); sparkCtx.lineTo(0,h); sparkCtx.closePath();
+    sparkCtx.fillStyle = pal.ink + '14'; sparkCtx.fill();
+    const lx=(data.length-1)*stepX, ly=h-(data[data.length-1]/maxV)*h;
+    sparkCtx.beginPath(); sparkCtx.arc(lx,ly,2.5,0,Math.PI*2);
+    sparkCtx.fillStyle = pal.highlighter; sparkCtx.fill();
+  }
+
+  // ---------- lifecycle ----------
+  function resetUniverse(prerun){
+    state.current = freshUniverse(state.size, state.density, state.K);
+    state.gen = 0;
+    resetOrganismTracking();
+    const seedRoles = analyzeRoles(state.current, state.size, state.maxRepro);
+    const seedOrg = trackOrganisms(seedRoles.comps, state.size);
+    state.history = [{gen:0, values: state.current.slice(), parent: new Int16Array(state.size).fill(-1),
+                      roles: seedRoles.roles, orgId: seedOrg.cellId, orgAge: seedOrg.cellAge}];
+    showRoleStats(seedRoles, seedOrg.oldest);
+    state.popHistory = [countNonZero(state.current)];
+    state.speciesHistory = [countSpecies(state.current)];
+    applyZoom();
+    hideInspector();
+    wasAlive = true; extinctNote.hidden = true;
+    if(prerun){
+      // exactly fill the window, so the top row is generation 0 and what you see
+      // is the early diversification rather than the settled endgame
+      for(let i=0;i<VISIBLE_ROWS-1;i++) stepOnce();
+    }
+    statGen.textContent = state.gen;
+    statPop.textContent = state.popHistory[state.popHistory.length-1];
+    statSpecies.textContent = state.speciesHistory[state.speciesHistory.length-1];
+    drawSparkline();
+  }
+
+  function injectOrganism(){
+    // two mutually dependent pairs: the 4 and the -4 read each other, as do
+    // the 1 and the -1, so every gene in it counts as a symbiont
+    const t = [4,1,-1,0,-4];
+    const start = Math.floor(Math.random()*(state.size-t.length));
+    for(let i=0;i<t.length;i++) state.current[start+i] = t[i];
+    const last = state.history[state.history.length-1];
+    last.values = state.current.slice();
+    paintRow(VISIBLE_ROWS-1, last);
+  }
+
+  // ---------- transport ----------
+  let rafId=null, lastTs=0, acc=0;
+  function loop(ts){
+    if(!state.running) return;
+    if(!lastTs) lastTs=ts;
+    const dt=(ts-lastTs)/1000; lastTs=ts;
+    acc += dt*state.speed;
+    let steps=0;
+    while(acc>=1 && steps<10){ stepOnce(); acc-=1; steps++; }
+    rafId = requestAnimationFrame(loop);
+  }
+  function play(){ if(state.running) return; state.running=true; lastTs=0; playBtn.textContent='Pause'; rafId=requestAnimationFrame(loop); }
+  function pause(){ state.running=false; if(rafId) cancelAnimationFrame(rafId); playBtn.textContent='Run'; }
+
+  playBtn.addEventListener('click', ()=> state.running ? pause() : play());
+  stepBtn.addEventListener('click', ()=>{ pause(); stepOnce(); });
+  speedRange.addEventListener('input', ()=>{ state.speed=Number(speedRange.value); speedVal.textContent=state.speed; });
+
+  // ---------- norms UI ----------
+  const selects = Array.from(document.querySelectorAll('.regions select'));
+  selects.forEach((sel,q)=>{
+    NORM_LETTERS.forEach(l=>{
+      const o=document.createElement('option'); o.value=l; o.textContent=NORM_NAME[l]; sel.appendChild(o);
+    });
+    sel.value = state.regions[q];
+    sel.addEventListener('change', ()=>{ state.regions[q]=sel.value; describeNorms(); });
+  });
+  function describeNorms(){
+    const uniq = [...new Set(state.regions)];
+    normDesc.textContent = uniq.map(l=>NORM_TEXT[l]).join('  ');
+    regionStrip.innerHTML = state.regions
+      .map((l,q)=>`<span>Q${q+1} · Norm ${NORM_NAME[l]}</span>`).join('');
+    if(demo.cur) renderTeach();
+  }
+  document.querySelectorAll('.preset-row button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.regions = PRESETS[btn.dataset.preset].slice();
+      selects.forEach((s,q)=> s.value = state.regions[q]);
+      describeNorms();
+    });
+  });
+
+  // ---------- norms reference ----------
+  const normsDialog = document.getElementById('normsDialog');
+  document.getElementById('dlgNorms').innerHTML = NORM_LETTERS.map(l=>
+    `<dt>Norm ${NORM_NAME[l]}</dt><dd>${NORM_TIP[l]}</dd>`).join('');
+  document.querySelectorAll('#normsBtn, #normsBtn2').forEach(b=>
+    b.addEventListener('click', ()=> normsDialog.showModal()));
+  document.getElementById('normsClose').addEventListener('click', ()=> normsDialog.close());
+  normsDialog.addEventListener('click', e=>{ if(e.target===normsDialog) normsDialog.close(); });
+
+  // swatch strip sample
+  // the legend has to follow the view: in the organisms view hue means identity,
+  // not value, and the swatches would otherwise be quietly lying
+  const legendText = document.getElementById('legendText');
+  function buildSwatches(){
+    const dark = isDark(palette());
+    swatchStrip.innerHTML='';
+    const org = state.highlight==='org';
+    const cells = org ? [0,1,2,3,4,5,6,7] : [-12,-7,-3,2,5,9,14,17];
+    cells.forEach((v,k)=>{
+      const i=document.createElement('i');
+      i.style.background = org ? colorForOrg(v,dark) : colorForValue(v,dark);
+      if(org) i.style.opacity = (0.25 + 0.75*k/7).toFixed(2);
+      swatchStrip.appendChild(i);
+    });
+    legendText.textContent = org
+      ? 'color = which organism · solidity = how long it has survived'
+      : 'color = which number a gene is';
+  }
+  buildSwatches();
+
+  // ---------- controls ----------
+  zoomRange.addEventListener('input', ()=>{
+    state.zoom = Number(zoomRange.value);
+    zoomVal.textContent = state.zoom.toFixed(1)+'×';
+    applyZoom();
+  });
+  reproRange.addEventListener('input', ()=>{ state.maxRepro=Number(reproRange.value); reproVal.textContent=state.maxRepro; });
+  document.querySelectorAll('.hl-group button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.hl-group button').forEach(b=>b.setAttribute('aria-pressed', b===btn));
+      state.highlight = btn.dataset.hl;
+      buildSwatches();
+      redrawFromHistory();
+    });
+  });
+  densityRange.addEventListener('input', ()=>{ state.density=Number(densityRange.value); densityVal.textContent=state.density; });
+  sizeInput.addEventListener('change', ()=>{ state.size=Math.max(64,Math.min(512,Number(sizeInput.value)||511)); });
+  kInput.addEventListener('change', ()=>{ state.K=Math.max(4,Math.min(40,Number(kInput.value)||18)); });
+  injectBtn.addEventListener('click', injectOrganism);
+  resetBtn.addEventListener('click', ()=>{ pause(); resetUniverse(true); });
+  extinctReset.addEventListener('click', ()=>{ pause(); resetUniverse(true); });
+
+  let resizeRaf=null;
+  new ResizeObserver(()=>{
+    if(resizeRaf) return;
+    resizeRaf = requestAnimationFrame(()=>{ resizeRaf=null; applyZoom(); });
+  }).observe(canvasWrap);
+
+  // ---------- inspector ----------
+  function findHistoryEntry(gen){
+    for(let i=state.history.length-1;i>=0;i--) if(state.history[i].gen===gen) return state.history[i];
+    return null;
+  }
+  function hideInspector(){ inspector.hidden=true; octx.clearRect(0,0,overlay.width,overlay.height); }
+  inspectorClose.addEventListener('click', hideInspector);
+
+  function inspectCell(gen, col){
+    const entry = findHistoryEntry(gen);
+    if(!entry || col<0 || col>=state.size) return;
+    const value = entry.values[col];
+    if(value===0){ hideInspector(); return; }
+    const trace=[]; let g=gen, c=col, guard=0, why='the founding generation';
+    while(guard<HISTORY_CAP){
+      const e=findHistoryEntry(g);
+      if(!e){ why='beyond the recorded history'; break; }
+      trace.push({gen:g, col:c});
+      const par=e.parent[c];
+      if(par===-2){ why='a collision resolved by a norm'; break; }
+      if(par===-1){ why='the founding generation'; break; }
+      g-=1; c=par; guard++;
+    }
+    insValue.textContent = value;
+    insPos.textContent = `column ${col}`;
+    insGen.textContent = `generation ${gen}`;
+    insTrace.textContent = trace.length>1
+      ? `${trace.length-1} generation${trace.length-1===1?'':'s'} back to ${why}`
+      : 'written this generation';
+    inspector.hidden = false;
+
+    octx.clearRect(0,0,overlay.width,overlay.height);
+    octx.strokeStyle = palette().highlighter; octx.lineWidth = 1.5;
+    trace.forEach(({gen:tg, col:tc})=>{
+      const row = VISIBLE_ROWS-1-(state.gen-tg);
+      if(row<0) return;
+      octx.strokeRect(tc*CELL+0.5, row*CELL+0.5, Math.max(1,CELL-1), Math.max(1,CELL-1));
+    });
+  }
+
+  stack.addEventListener('click', (e)=>{
+    pause();
+    const rect = stack.getBoundingClientRect();
+    const cx = (e.clientX-rect.left)*(stack.width/rect.width);
+    const cy = (e.clientY-rect.top)*(stack.height/rect.height);
+    const col = Math.floor(cx/CELL), row = Math.floor(cy/CELL);
+    inspectCell(state.gen - (VISIBLE_ROWS-1-row), col);
+  });
+
+  // ---------- teaching stage: one generation, slowed right down ----------
+  const teachSvg = document.getElementById('teachSvg');
+  const teachSay = document.getElementById('teachSay');
+  const teachNext = document.getElementById('teachNext');
+  const teachPlay = document.getElementById('teachPlay');
+  const teachGen = document.getElementById('teachGen');
+  const teachReset = document.getElementById('teachReset');
+
+  const demo = {
+    size: 28, K: 9, density: 58, gen: 0,
+    cur:null, next:null, gi:-1, delta:0, nrep:0,
+    arcs:[], gapViz:null, usedSrc:null, pendingSrc:null, pendingGene:null, genComplete:false,
+    say:'', timer:null
+  };
+
+  function demoReset(){
+    demo.cur = new Int16Array(demo.size);
+    for(let i=0;i<demo.size;i++) if(Math.random()*100 < demo.density){
+      let v=0; while(v===0) v = randGene(demo.K);
+      demo.cur[i]=v;
+    }
+    demo.next = new Int16Array(demo.size);
+    demo.gen = 0; demo.gi=-1; demo.arcs=[]; demo.gapViz=null; demo.usedSrc=null; demo.pendingSrc=null;
+    demo.pendingGene = demoNextGeneFrom(0); demo.genComplete=false;
+    demo.say = 'Each number will step down into the row below. Press <b>Next step</b> to follow one gene at a time.';
+    renderTeach();
+  }
+  function demoNextGeneFrom(from){
+    for(let j=from;j<demo.size;j++) if(demo.cur[j]!==0) return j;
+    return -1;
+  }
+  function commitGeneration(){
+    demo.cur = demo.next;
+    demo.next = new Int16Array(demo.size);
+    demo.gen++; demo.gi=-1; demo.arcs=[]; demo.gapViz=null; demo.usedSrc=null; demo.pendingSrc=null;
+    demo.genComplete=false;
+    demo.pendingGene = demoNextGeneFrom(0);
+    if(demo.pendingGene<0){
+      demo.say = 'Nothing is left alive. Press <b>New universe</b> to reseed.';
+    } else {
+      demo.say = `Generation ${demo.gen} is now the row we read from. The row below starts empty again.`;
+    }
+  }
+
+  function demoStep(){
+    if(demo.genComplete){ commitGeneration(); renderTeach(); return; }
+    if(demo.pendingGene !== null && demo.pendingGene >= 0){
+      demo.gi = demo.pendingGene; demo.delta = demo.cur[demo.gi]; demo.nrep = 0;
+      demo.arcs = []; demo.gapViz = null; demo.usedSrc = null; demo.pendingSrc = null; demo.pendingGene = null;
+    }
+    // the column that supplied this step's delta — null on a gene's first step
+    demo.usedSrc = demo.pendingSrc;
+    if(demo.gi < 0){ commitGeneration(); renderTeach(); return; }
+
+    const size = demo.size, X = demo.cur[demo.gi], Xa = demo.gi, delta = demo.delta;
+    const Na = wrap(Xa+delta, size);
+    const occupant = demo.next[Na];
+    const collides = occupant!==0 && occupant!==X;
+    const origin = demo.nrep===0
+      ? `Gene <b>${X}</b> at column ${Xa} steps by its own value`
+      : `Gene <b>${X}</b> copies again from its original column ${Xa}, stepping by the <b>${delta}</b> it just read at column ${demo.usedSrc}`;
+    const raw = Xa + delta;
+    const wrapped = raw < 0 ? 'left' : (raw >= size ? 'right' : null);
+    const op = `${Xa} ${delta<0?'−':'+'} ${Math.abs(delta)}`;
+    const sum = wrapped === 'left'
+      ? `${op} = ${raw}, which falls off the left-hand end. The universe is a loop, so it counts back from the right-hand end instead: column <b>${Na}</b>`
+      : wrapped === 'right'
+      ? `${op} = ${raw}, which runs past the right-hand end. The universe is a loop, so it carries on from the left-hand end instead: column <b>${Na}</b>`
+      : `${op} → column <b>${Na}</b>`;
+
+    if(collides){
+      const letter = normForColumn(Na, size);
+      const q = Math.min(3, Math.floor(Na/(size/4)))+1;
+      const tag = `${normRef(letter)} in Q${q}`;
+      let detail;
+      const above = demo.cur[Na];
+      demo.gapViz = {a:Na, above, letter, kind:'collision'};
+      if(letter==='zero'){
+        detail = `${tag}: the cell simply empties, without looking at its surroundings at all.`;
+      } else if(letter==='d'){
+        const P=above, A=demo.cur[wrap(Na+P,size)], B=demo.cur[wrap(Na-P,size)];
+        demo.gapViz.mirror = {P, right:wrap(Na+P,size), left:wrap(Na-P,size)};
+        detail = (A===B)
+          ? `${tag}: the value directly above is ${P}, and the cells ${Math.abs(P)} to each side both hold ${A}, so the cell becomes <b>${-P+2*A}</b>.`
+          : `${tag}: the value directly above is ${P}, but the cells ${Math.abs(P)} to each side differ (${A} and ${B}), so the cell empties.`;
+      } else if(demo.cur[Na]!==0){
+        detail = `${tag} builds a new value out of the empty space around the collision — but here the cell directly above it is occupied (by ${demo.cur[Na]}), so there is no space to measure and the cell empties instead.`;
+      } else {
+        const u=gapRight(demo.cur,size,Na), v=gapLeft(demo.cur,size,Na);
+        const U=demo.cur[wrap(Na+u,size)], V=demo.cur[wrap(Na-v,size)];
+        const agree = (U>0&&V>0)||(U<0&&V<0);
+        demo.gapViz.gaps = {u,v};
+        const setup = `${tag} builds a brand-new value out of the space around the collision. Column ${Na} in the row above is empty, `
+          + `and the nearest gene is <b>${v}</b> cell${v===1?'':'s'} to the left (${V}) and <b>${u}</b> cell${u===1?'':'s'} to the right (${U}). `
+          + `Those two distances are v and u.`;
+        if(letter==='c'){
+          detail = `${setup} Norm C subtracts them: v−u = ${v}−${u} = <b>${v-u}</b>.`;
+        } else {
+          const mag = (letter==='b') ? u+v-1 : u+v;
+          const shown = (letter==='b') ? `u+v−1 = ${u}+${v}−1 = ${mag}` : `u+v = ${u}+${v} = ${mag}`;
+          detail = `${setup} Norm ${NORM_NAME[letter]} adds them: ${shown}. `
+                 + `The two flanking genes ${V} and ${U} ${agree?'agree in sign, so the value stays positive':'disagree in sign, so the value flips negative'}: <b>${agree?mag:-mag}</b>.`;
+        }
+      }
+      applyNorm(letter, demo.cur, demo.next, size, Na);
+      demo.say = `${origin}: ${sum} — but that cell already holds <b>${occupant}</b>. ${detail}`;
+    } else {
+      demo.next[Na] = X;
+      // no collision, but the rule still reads the cell directly above the
+      // landing site to decide whether this gene copies again
+      demo.gapViz = {a:Na, above:demo.cur[Na], kind:'place'};
+      demo.say = `${origin}: ${sum}.`;
+    }
+
+    demo.arcs.push({from:Xa, to:Na, label:delta, borrow: demo.nrep>0, collided:collides, wrapped});
+
+    // The rule now consults the cell directly above where this copy landed — the
+    // cell the diagram has just ringed and linked. Report only what that cell
+    // holds: describing the copy it leads to would narrate an arc this step has
+    // not drawn, and the next step would then say the same thing twice.
+    const Y = demo.cur[Na];
+    const canCopy = Y!==0 && demo.nrep+1 <= state.maxRepro;
+    if(Y===0){
+      demo.say += ` The rule now reads the cell directly above column ${Na}: it is empty, so gene <b>${X}</b> has nothing to borrow and is finished.`;
+    } else if(canCopy){
+      demo.say += ` The rule now reads the cell directly above column ${Na}: it holds <b>${Y}</b>, so gene <b>${X}</b> has a value to borrow.`;
+    } else if(state.maxRepro===0){
+      demo.say += ` The cell directly above column ${Na} holds <b>${Y}</b>, but copies per gene is set to 0, so gene <b>${X}</b> is finished.`;
+    } else {
+      demo.say += ` The cell directly above column ${Na} holds <b>${Y}</b>, but gene <b>${X}</b> has already used all ${state.maxRepro} of its extra copies, so it is finished.`;
+    }
+
+    if(canCopy){
+      demo.pendingSrc = Na; demo.delta = Y; demo.nrep++;
+    } else {
+      const nj = demoNextGeneFrom(demo.gi+1);
+      if(nj<0){ demo.genComplete = true; demo.say += ' That was the last gene — the generation is complete.'; }
+      else demo.pendingGene = nj;
+    }
+    renderTeach();
+  }
+
+  function demoSkipGeneration(){
+    let guard=0;
+    while(!demo.genComplete && guard++ < 4000) demoStep();
+    commitGeneration(); renderTeach();
+  }
+
+  const TW=29, TX0=14, TTY=66, TBY=212, TCH=30;
+  function teachCell(v, x, y, dark, focus, ring){
+    const cx=x+(TW-2)/2;
+    if(v===0){
+      return `<rect x="${x}" y="${y}" width="${TW-2}" height="${TCH}" rx="2" class="tc-empty"/>`
+        + (ring?`<rect x="${x-2}" y="${y-2}" width="${TW+2}" height="${TCH+4}" rx="3" class="tc-ring"/>`:'');
+    }
+    return `<rect x="${x}" y="${y}" width="${TW-2}" height="${TCH}" rx="2" fill="${colorForValue(v,dark)}"/>`
+      + `<text x="${cx}" y="${y+TCH/2+4}" class="tc-num">${v}</text>`
+      + (focus?`<rect x="${x-3}" y="${y-3}" width="${TW+4}" height="${TCH+6}" rx="4" class="tc-focus"/>`:'')
+      + (ring?`<rect x="${x-2}" y="${y-2}" width="${TW+2}" height="${TCH+4}" rx="3" class="tc-ring"/>`:'');
+  }
+
+  function renderTeach(){
+    const dark = isDark(palette());
+    const cx = j => TX0 + j*TW + (TW-2)/2;
+    const p = [];
+    p.push(`<style>
+      .tc-num{font:600 12px var(--font-mono); fill:var(--paper); text-anchor:middle; font-variant-numeric:tabular-nums;}
+      .tc-empty{fill:none; stroke:var(--rule); stroke-dasharray:2 3;}
+      .tc-focus{fill:none; stroke:var(--highlighter); stroke-width:2;}
+      .tc-ring{fill:none; stroke:var(--spark); stroke-width:1.5; stroke-dasharray:3 2; opacity:.45;}
+      .tlbl{font:11px var(--font-mono); fill:var(--ink-faint); letter-spacing:.06em;}
+      .tarc{fill:none; stroke:var(--highlighter); stroke-width:2;}
+      .tarc.borrow{stroke:var(--ink-faint); stroke-dasharray:4 3;}
+      .tarc.hit{stroke:var(--spark);}
+      .talbl{font:600 10px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
+      .tg-dim{stroke:var(--spark); stroke-width:2; stroke-linecap:round;}
+      .tg-lbl{font:700 12px var(--font-mono); fill:var(--spark); text-anchor:middle;}
+      .tg-cap{font:italic 10px var(--font-body); fill:var(--spark); text-anchor:middle;}
+      .tg-origin{fill:none; stroke:var(--spark); stroke-width:2; stroke-dasharray:4 3;}
+      .tg-ring{fill:none; stroke:var(--spark); stroke-width:2;}
+      .tg-hit{fill:none; stroke:var(--spark); stroke-width:2.5;}
+      .tg-link{stroke:var(--spark); stroke-width:1.5; stroke-dasharray:2 4; opacity:.7;}
+      .tcol{font:9px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
+      .tq-band{fill:var(--rule); opacity:.32;}
+      .tq-band.alt{opacity:.12;}
+      .tq-lbl{font:600 10px var(--font-mono); fill:var(--ink-faint); text-anchor:middle; letter-spacing:.04em;}
+      .tq-div{stroke:var(--rule); stroke-width:1; stroke-dasharray:2 4;}
+    </style>`);
+    p.push(`<text x="4" y="14" class="tlbl">READING · generation ${demo.gen}</text>`);
+    p.push(`<text x="4" y="${TBY-12}" class="tlbl">WRITING · generation ${demo.gen+1}</text>`);
+
+    for(let j=0;j<demo.size;j++){
+      const x = TX0 + j*TW;
+      p.push(teachCell(demo.cur[j], x, TTY, dark, j===demo.gi, demo.usedSrc===j));
+      p.push(teachCell(demo.next[j], x, TBY, dark, false, false));
+      if(j%4===0) p.push(`<text x="${cx(j)}" y="${TBY+TCH+13}" class="tcol">${j}</text>`);
+    }
+
+    if(demo.gapViz){
+      const {a, above, gaps, mirror, kind} = demo.gapViz;
+      const uGy = 36, vGy = 54, ax = cx(a), RIGHT_EDGE = TX0+demo.size*TW+4, LEFT_EDGE = TX0-6;
+      const dim = (x1,x2,y,label) =>
+          `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" class="tg-dim"/>`
+        + `<line x1="${x1}" y1="${y-6}" x2="${x1}" y2="${y+6}" class="tg-dim"/>`
+        + `<line x1="${x2}" y1="${y-6}" x2="${x2}" y2="${y+6}" class="tg-dim"/>`
+        + `<text x="${(x1+x2)/2}" y="${y-9}" class="tg-lbl">${label}</text>`;
+      const ring = j => `<rect x="${TX0+j*TW-3}" y="${TTY-3}" width="${TW+4}" height="${TCH+6}" rx="4" class="tg-ring"/>`;
+
+      // every written cell is linked to the cell directly above it — the one the
+      // rule consults, both to settle collisions and to decide the next copy
+      p.push(`<rect x="${TX0+a*TW-2}" y="${TTY-2}" width="${TW+2}" height="${TCH+4}" rx="3" class="${above===0?'tg-origin':'tg-ring'}"/>`);
+      p.push(`<line x1="${ax}" y1="${TTY+TCH+3}" x2="${ax}" y2="${TBY-3}" class="tg-link"/>`);
+      if(kind==='collision')
+        p.push(`<rect x="${TX0+a*TW-3}" y="${TBY-3}" width="${TW+4}" height="${TCH+6}" rx="4" class="tg-hit"/>`);
+
+      if(kind!=='collision'){
+        /* plain placement: the link alone tells the story */
+      } else if(gaps){
+        const {u,v} = gaps, ur = a+u, vl = a-v;
+        p.push(dim(ax, ur<demo.size ? cx(ur) : RIGHT_EDGE, uGy, `u = ${u} to the right →`));
+        if(ur<demo.size) p.push(ring(ur));
+        p.push(dim(vl>=0 ? cx(vl) : LEFT_EDGE, ax, vGy, `← v = ${v} to the left`));
+        if(vl>=0) p.push(ring(vl));
+      } else if(mirror){
+        [mirror.left, mirror.right].forEach(j=>{ if(j!==a) p.push(ring(j)); });
+        p.push(`<text x="${ax}" y="${vGy-9}" class="tg-lbl">mirror at ±${Math.abs(mirror.P)}</text>`);
+      } else {
+        p.push(`<text x="${ax}" y="${vGy-9}" class="tg-lbl">cell above is occupied — no space to measure</text>`);
+      }
+    }
+
+    // quadrant band: which norm governs which stretch of the universe
+    const qw = demo.size/4, bandY = 262;
+    for(let q=0;q<4;q++){
+      const x1 = TX0 + Math.round(q*qw)*TW, x2 = TX0 + Math.round((q+1)*qw)*TW - 2;
+      p.push(`<rect x="${x1}" y="${bandY}" width="${x2-x1}" height="17" class="tq-band${q%2?' alt':''}"/>`);
+      p.push(`<text x="${(x1+x2)/2}" y="${bandY+12}" class="tq-lbl">Q${q+1} · Norm ${NORM_NAME[state.regions[q]]}</text>`);
+      if(q>0) p.push(`<line x1="${x1}" y1="${TTY-8}" x2="${x1}" y2="${bandY}" class="tq-div"/>`);
+    }
+
+    demo.arcs.forEach(a=>{
+      const sx=cx(a.from), tx=cx(a.to), y1=TTY+TCH, y2=TBY;
+      const cls = 'tarc' + (a.borrow?' borrow':'') + (a.collided?' hit':'');
+      const curve = (x1,x2) => `<path d="M ${x1} ${y1} C ${x1} ${y1+54}, ${x2} ${y2-54}, ${x2} ${y2}" class="${cls}"/>`;
+      if(a.wrapped){
+        // leave one edge and re-enter from the other, rather than sweeping the whole width
+        const OUT = a.wrapped==='left' ? -46 : 926;
+        const IN  = a.wrapped==='left' ? 926 : -46;
+        p.push(curve(sx, OUT));
+        p.push(curve(IN, tx));
+        p.push(`<text x="${sx}" y="${y1+22}" class="talbl">${a.label>0?'+':''}${a.label} ↻</text>`);
+      } else {
+        p.push(curve(sx, tx));
+        p.push(`<text x="${(sx+tx)/2}" y="${(y1+y2)/2}" class="talbl">${a.label>0?'+':''}${a.label}</text>`);
+      }
+      p.push(`<circle cx="${tx}" cy="${y2}" r="3" fill="${a.collided?'var(--spark)':'var(--highlighter)'}"/>`);
+    });
+
+    teachSvg.innerHTML = p.join('');
+    teachSay.innerHTML = demo.say;
+  }
+
+  function teachStopPlay(){ if(demo.timer){ clearInterval(demo.timer); demo.timer=null; } teachPlay.textContent='Play'; }
+  teachNext.addEventListener('click', ()=>{ teachStopPlay(); demoStep(); });
+  teachPlay.addEventListener('click', ()=>{
+    if(demo.timer) teachStopPlay();
+    else { teachPlay.textContent='Pause'; demo.timer = setInterval(demoStep, 1100); }
+  });
+  teachGen.addEventListener('click', ()=>{ teachStopPlay(); demoSkipGeneration(); });
+  teachReset.addEventListener('click', ()=>{ teachStopPlay(); demoReset(); });
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ buildSwatches(); redrawFromHistory(); drawSparkline(); renderTeach(); });
+
+  resetUniverse(true);
+  demoReset();
+  describeNorms();
+})();
+</script>
