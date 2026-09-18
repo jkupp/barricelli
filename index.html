@@ -988,21 +988,29 @@
     for(let k=0;k<n;k++) paintRow(VISIBLE_ROWS - n + k, hist[start+k]);
   }
 
+  // A label for the first or last row is centred about a pixel from the edge of
+  // the rows, so a canvas exactly as tall as the record clips half of it. The
+  // ruler therefore overhangs the rows by RULER_PAD at each end, and the negative
+  // bottom margin keeps that overhang from changing the layout around it.
+  const RULER_PAD = 8;
   function syncRulerSize(){
     const cssH = stack.getBoundingClientRect().height || 1;
-    ruler.style.height = cssH + 'px';
+    ruler.style.height = (cssH + 2*RULER_PAD) + 'px';
     // the quadrant strip sits above the record, so the ruler must start where the
     // rows start — not at the top of the strip, or every label reads ~15 gens high
-    ruler.style.marginTop = (stack.getBoundingClientRect().top - canvasWrap.getBoundingClientRect().top) + 'px';
+    const rowsTop = stack.getBoundingClientRect().top - canvasWrap.getBoundingClientRect().top;
+    ruler.style.marginTop = (rowsTop - RULER_PAD) + 'px';
+    ruler.style.marginBottom = -RULER_PAD + 'px';
     const dpr = window.devicePixelRatio || 1;
     ruler.width = Math.max(1, Math.round((ruler.clientWidth||38)*dpr));
-    ruler.height = Math.max(1, Math.round(cssH*dpr));
+    ruler.height = Math.max(1, Math.round((cssH + 2*RULER_PAD)*dpr));
     rctx.setTransform(dpr,0,0,dpr,0,0);
   }
   function drawRuler(){
     const pal = palette();
-    const w = ruler.clientWidth||38, h = ruler.clientHeight||1;
-    rctx.clearRect(0,0,w,h);
+    const w = ruler.clientWidth||38, full = ruler.clientHeight||1;
+    const h = Math.max(1, full - 2*RULER_PAD);        // height of the rows themselves
+    rctx.clearRect(0,0,w,full);
     rctx.font = '11px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-mono');
     rctx.fillStyle = pal.inkFaint;
     rctx.textAlign = 'right'; rctx.textBaseline = 'middle';
@@ -1012,7 +1020,7 @@
     for(let r=0;r<VISIBLE_ROWS;r++){
       const gen = state.gen - (VISIBLE_ROWS-1-r);
       if(gen<0 || gen%step!==0) continue;
-      rctx.fillText(String(gen), w-5, (r+0.5)*rowH);
+      rctx.fillText(String(gen), w-5, RULER_PAD + (r+0.5)*rowH);
     }
   }
 

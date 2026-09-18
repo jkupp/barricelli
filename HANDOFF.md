@@ -136,7 +136,11 @@ from stored state rather than recomputation.
 
 **The ruler is offset to start where the rows start** (`syncRulerSize`). The
 quadrant strip sits above the record, and for a while the ruler began at the top
-of the strip, so every label read about 15 generations high.
+of the strip, so every label read about 15 generations high. The ruler canvas
+also overhangs the rows by `RULER_PAD` (8px) at each end: a label for the first
+or last row is centred about a pixel from the edge, and a canvas exactly as tall
+as the rows clipped half of it. A negative bottom margin keeps the overhang from
+changing the layout.
 
 **Reset preruns exactly `VISIBLE_ROWS - 1` generations**, so the top of the record
 is generation 0. This is deliberate: an earlier version pre-ran far more and you
