@@ -23,11 +23,15 @@
     --paper:#f4f0e6;
     --paper-2:#ece4d2;
     --ink:#2b2620;
-    --ink-faint:#8a7f6c;
+    /* secondary text, green and amber were darkened (hue kept) to meet WCAG AA:
+       text 4.5:1 against the darkest ground each sits on; amber graphics and the
+       focus ring 3:1. Amber *text* needs more than amber graphics, hence hl-text. */
+    --ink-faint:#60594b;
     --rule:#c9c0a8;
-    --spark:#3f8f6b;
-    --highlighter:#c98a1f;
-    --focus:#c98a1f;
+    --spark:#327154;
+    --highlighter:#ab751a;
+    --hl-text:#875c15;
+    --focus:#ab751a;
     --font-display:'Spectral', Georgia, 'Times New Roman', serif;
     --font-body:'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono:'Courier Prime', 'Courier New', ui-monospace, monospace;
@@ -42,6 +46,7 @@
       --rule:#453e30;
       --spark:#5cba8f;
       --highlighter:#e8bd4e;
+      --hl-text:#e8bd4e;
       --focus:#e8bd4e;
     }
   }
@@ -54,6 +59,7 @@
     --rule:#453e30;
     --spark:#5cba8f;
     --highlighter:#e8bd4e;
+    --hl-text:#e8bd4e;
     --focus:#e8bd4e;
   }
 
@@ -62,7 +68,7 @@
   h1,h2{font-family:var(--font-display); text-wrap:balance; margin:0;}
   p{margin:0;}
   button, input, select{font-family:inherit; color:inherit;}
-  ::selection{background:var(--highlighter); color:var(--paper);}
+  ::selection{background:color-mix(in srgb, var(--highlighter) 32%, var(--paper)); color:var(--ink);}
 
   .app{
     max-width:1180px; margin:0 auto; padding:32px 20px 64px;
@@ -72,7 +78,7 @@
   /* ---- header ---- */
   .record{ display:flex; flex-direction:column; gap:10px; max-width:74ch; }
   .eyebrow{
-    font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
     color:var(--ink-faint);
   }
   .record h1{ font-size:clamp(28px,4vw,40px); font-weight:600; }
@@ -87,8 +93,27 @@
   .stage-toolbar{ display:flex; justify-content:flex-end; margin-bottom:10px; }
   .zoom-control{ width:170px; }
   .canvas-row{ display:flex; gap:8px; }
-  #ruler{ flex:none; width:34px; display:block; }
-  .canvas-wrap{ flex:1; min-width:0; overflow-x:auto; overflow-y:hidden; border-radius:2px; }
+  #ruler{ flex:none; width:38px; display:block; }
+  .canvas-col{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .canvas-wrap{ min-width:0; overflow-x:auto; overflow-y:hidden; border-radius:2px; }
+
+  /* Native scrollbars on macOS and iOS are overlays that vanish until you're
+     already scrolling, so nothing said these views could scroll at all. iOS also
+     ignores scrollbar styling, so instead of restyling the native bar, both
+     scrolling views get a drawn one, shown whenever there is somewhere to go. */
+  .canvas-wrap, .teach-stage{ scrollbar-width:none; }
+  .canvas-wrap::-webkit-scrollbar, .teach-stage::-webkit-scrollbar{ display:none; }
+  .hscroll{ position:relative; height:24px; margin-top:2px; cursor:pointer; touch-action:none; user-select:none; -webkit-user-select:none; }
+  .hscroll::before{
+    content:''; position:absolute; left:0; right:0; top:10px; height:4px; border-radius:2px;
+    background:var(--rule);
+  }
+  .hscroll-thumb{
+    position:absolute; left:0; top:7px; height:10px; border-radius:5px;
+    background:var(--ink-faint); transition:background-color .12s;
+  }
+  .hscroll:hover .hscroll-thumb, .hscroll.dragging .hscroll-thumb{ background:var(--ink); }
+  @media (prefers-reduced-motion:reduce){ .hscroll-thumb{ transition:none; } }
   .canvas-stack{ position:relative; display:inline-block; line-height:0; }
   .canvas-stack canvas{ display:block; image-rendering:pixelated; }
   #overlay{ position:absolute; inset:0; pointer-events:none; }
@@ -100,74 +125,100 @@
   }
   /* the legend claims the whole first line so the show switch stays put on the
      second one, instead of hopping up whenever a shorter label makes room */
-  .legend{ flex:0 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-faint); }
+  .legend{ flex:0 0 100%; display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-faint); }
   .swatch-strip{ display:flex; gap:2px; }
   .swatch-strip i{ width:11px; height:13px; display:block; border-radius:1px; }
   .hl-group{ display:flex; align-items:center; gap:0; }
   .hl-label{
-    font-family:var(--font-mono); font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+    font-family:var(--font-mono); font-size:11.5px; letter-spacing:.1em; text-transform:uppercase;
     color:var(--ink-faint); margin-right:7px;
   }
   .hl-group button{
-    padding:3px 9px; font-size:11.5px; border-radius:0; border-left-width:0;
+    padding:4px 9px; font-size:12.5px; border-radius:0; border-left-width:0;
     background:var(--paper-2); position:relative;
   }
   .hl-group button .tip{ right:0; bottom:calc(100% + 7px); }
-  .hl-group button:hover .tip, .hl-group button:focus-visible .tip{ display:block; }
-  .hl-group button:first-of-type{ border-left-width:1px; border-radius:4px 0 0 4px; }
-  .hl-group button:last-of-type{ border-radius:0 4px 4px 0; }
+  .hl-group button:focus-visible .tip{ display:block; }
+  .hl-group button[data-hl="all"]{ border-left-width:1px; border-radius:4px 0 0 4px; }
+  .hl-group button[data-hl="org"]{ border-radius:0 4px 4px 0; }
+  .hl-group .info-btn{ margin-left:8px; border-left-width:1px; border-radius:50%; padding:0; font-size:16px; }
+  /* too narrow for one segmented row: the four views become separate pills that
+     wrap, with the label above and ⓘ following the last one */
+  @media (max-width:520px){
+    .hl-group{ flex-wrap:wrap; gap:6px; }
+    .hl-label{ flex-basis:100%; margin:0; }
+    .hl-group button[data-hl]{ border-left-width:1px; border-radius:4px; }
+    .hl-group .info-btn{ margin-left:2px; }
+  }
   .hl-group button[aria-pressed="true"]{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
-  .hint{ font-size:12.5px; color:var(--ink-faint); font-style:italic; }
-  .hint b{ color:var(--highlighter); font-style:normal; font-weight:600; }
+  .hint{ font-size:13.5px; color:var(--ink-faint); font-style:italic; }
+  .hint b{ color:var(--hl-text); font-style:normal; font-weight:600; }
 
   .extinct-note{
     margin-top:12px; padding:10px 12px; border:1px solid var(--highlighter); border-radius:4px;
-    background:color-mix(in srgb, var(--highlighter) 12%, transparent); font-size:13px; color:var(--ink);
+    background:color-mix(in srgb, var(--highlighter) 12%, transparent); font-size:14px; color:var(--ink);
   }
   .extinct-note[hidden]{ display:none; }
-  .extinct-note button{ padding:3px 9px; font-size:12px; }
+  .extinct-note button{ padding:3px 9px; font-size:13px; }
 
   /* ---- region strip over the record ---- */
-  .region-strip{ display:flex; height:17px; margin-bottom:3px; }
+  .region-strip{ display:flex; height:20px; margin-bottom:3px; }
   .region-strip span{
-    flex:1; font-family:var(--font-mono); font-size:9.5px; letter-spacing:.06em;
-    color:var(--ink-faint); text-align:center; line-height:17px;
+    flex:1; font-family:var(--font-mono); font-size:11px; letter-spacing:.04em;
+    color:var(--ink-faint); text-align:center; line-height:20px; white-space:nowrap; overflow:hidden;
     border-left:1px solid var(--rule); background:color-mix(in srgb, var(--rule) 22%, transparent);
   }
   .region-strip span:first-child{ border-left:none; }
   .region-strip span:nth-child(even){ background:transparent; }
+  @media (max-width:600px){ .region-strip .rs-long{ display:none; } }
 
   /* ---- tooltips (shared) ---- */
   .tip{
     display:none; position:absolute; z-index:30;
     width:min(330px, 72vw); padding:9px 11px; border-radius:4px; text-align:left;
     background:var(--ink); color:var(--paper); border:1px solid var(--ink);
-    font-family:var(--font-body); font-weight:400; font-size:12px; line-height:1.5;
+    font-family:var(--font-body); font-weight:400; font-size:13px; line-height:1.5;
     letter-spacing:normal; text-transform:none; cursor:default;
     box-shadow:0 4px 14px rgba(0,0,0,.22);
   }
   .normref{
     position:relative; border-bottom:1px dotted var(--highlighter); cursor:help;
-    color:var(--highlighter); font-weight:600; outline-offset:2px;
+    color:var(--hl-text); font-weight:600; outline-offset:2px;
   }
   .normref .tip{ left:0; top:calc(100% + 6px); }
-  .normref:hover .tip, .normref:focus .tip, .normref:focus-visible .tip{ display:block; }
+  .normref:focus .tip{ display:block; }
 
   #injectBtn{ position:relative; }
   #injectBtn .tip{ left:0; bottom:calc(100% + 7px); font-weight:400; }
-  #injectBtn:hover .tip, #injectBtn:focus-visible .tip{ display:block; }
+  #injectBtn:focus-visible .tip{ display:block; }
 
   .lg-term{ position:relative; border-bottom:1px dotted var(--rule); cursor:help; outline-offset:2px; }
   .lg-term .tip{ left:0; top:calc(100% + 6px); }
-  .lg-term:hover .tip, .lg-term:focus .tip, .lg-term:focus-visible .tip{ display:block; }
+  .lg-term:focus .tip{ display:block; }
+
+  /* On a touchscreen a tap is also a hover, and the hover sticks — so a tooltip
+     on an action button would pop up over the record every time the button was
+     used, and stay there. Hover tooltips are therefore reserved for devices that
+     can genuinely hover; touch users get the ⓘ buttons instead. Informational
+     terms still open on tap (focus) and close on a second tap. */
+  @media (hover:hover){
+    .hl-group button:hover .tip, #injectBtn:hover .tip,
+    .normref:hover .tip, .lg-term:hover .tip{ display:block; }
+  }
+
+  .info-btn{
+    flex:none; width:28px; height:28px; padding:0; border-radius:50%;
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--font-display); font-style:italic; font-weight:600; font-size:16px; line-height:1;
+  }
 
   /* ---- norms dialog ---- */
-  #normsDialog{
+  #normsDialog, #infoDialog{
     border:1px solid var(--rule); border-radius:8px; padding:0; max-width:620px; width:calc(100% - 32px);
     background:var(--paper); color:var(--ink);
   }
-  #normsDialog::backdrop{ background:rgba(20,16,10,.46); }
-  #normsDialog[open]{ display:flex; flex-direction:column; max-height:calc(100vh - 56px); }
+  #normsDialog::backdrop, #infoDialog::backdrop{ background:rgba(20,16,10,.46); }
+  #normsDialog[open], #infoDialog[open]{ display:flex; flex-direction:column; max-height:calc(100vh - 56px); }
   .dlg-body{ overflow:auto; }
   .dlg-head{
     display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -175,26 +226,27 @@
   }
   .dlg-head h2{ font-size:19px; }
   .dlg-head button{ padding:4px 9px; }
-  .dlg-intro, .dlg-foot{ font-size:13px; line-height:1.6; color:var(--ink-faint); padding:10px 18px 0; max-width:62ch; }
+  .dlg-intro, .dlg-foot{ font-size:14px; line-height:1.6; color:var(--ink-faint); padding:10px 18px 0; max-width:62ch; }
   .dlg-foot{ padding-bottom:18px; border-top:1px dashed var(--rule); margin-top:14px; padding-top:12px; }
   .dlg-norms{ padding:12px 18px 0; margin:0; }
   .dlg-norms dt{
-    font-family:var(--font-mono); font-size:12.5px; letter-spacing:.06em; color:var(--ink);
+    font-family:var(--font-mono); font-size:13px; letter-spacing:.06em; color:var(--ink);
     margin-top:12px; font-weight:700;
   }
   .dlg-norms dt:first-child{ margin-top:0; }
-  .dlg-norms dd{ margin:3px 0 0 0; font-size:13.5px; line-height:1.55; color:var(--ink-faint); }
+  #infoDialog .dlg-norms{ padding-bottom:18px; }
+  .dlg-norms dd{ margin:3px 0 0 0; font-size:14px; line-height:1.55; color:var(--ink-faint); }
 
   /* ---- teaching stage ---- */
-  .teach-head p{ font-size:13px; color:var(--ink-faint); line-height:1.5; max-width:62ch; }
+  .teach-head p{ font-size:14px; color:var(--ink-faint); line-height:1.5; max-width:62ch; }
   .teach-stage{ width:100%; overflow-x:auto; }
   .teach-stage svg{ width:100%; min-width:620px; height:auto; display:block; }
   .teach-say{
-    font-family:var(--font-mono); font-size:12.5px; line-height:1.6; color:var(--ink);
+    font-family:var(--font-mono); font-size:13.5px; line-height:1.6; color:var(--ink);
     background:var(--paper-2); border-left:3px solid var(--highlighter);
     padding:9px 12px; border-radius:3px; min-height:42px;
   }
-  .teach-say b{ color:var(--highlighter); }
+  .teach-say b{ color:var(--hl-text); }
   .teach-controls{ display:flex; flex-wrap:wrap; gap:8px; }
   .teach-controls button{ flex:1; min-width:110px; }
 
@@ -205,7 +257,7 @@
     border-radius:4px; padding:14px 46px 14px 16px; display:flex; flex-wrap:wrap; gap:6px 24px; align-items:baseline;
   }
   .inspector[hidden]{ display:none; }
-  .inspector dt{ font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); }
+  .inspector dt{ font-family:var(--font-mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); }
   .inspector dd{ margin:0 0 8px 0; font-family:var(--font-mono); font-size:14px; font-variant-numeric:tabular-nums; }
   .inspector .close{ position:absolute; top:8px; right:9px; margin:0; padding:3px 8px; line-height:1; }
 
@@ -215,20 +267,20 @@
     background:var(--paper); border:1px solid var(--rule); border-radius:6px; padding:16px;
     display:flex; flex-direction:column; gap:12px;
   }
-  .panel h2{ font-size:12px; letter-spacing:.1em; text-transform:uppercase; font-family:var(--font-mono); color:var(--ink-faint); font-weight:400; }
+  .panel h2{ font-size:13px; letter-spacing:.1em; text-transform:uppercase; font-family:var(--font-mono); color:var(--ink-faint); font-weight:400; }
   .row{ display:flex; align-items:center; gap:10px; }
-  label.field{ display:block; font-size:12.5px; line-height:1.4; color:var(--ink-faint); }
+  label.field{ display:block; font-size:13.5px; line-height:1.4; color:var(--ink-faint); }
   label.field > input, label.field > select{ display:block; margin-top:5px; }
   label.field input[type="number"], select{
     background:var(--paper-2); border:1px solid var(--rule); border-radius:4px; padding:6px 8px;
     font-family:var(--font-mono); color:var(--ink); width:100%; font-variant-numeric:tabular-nums;
   }
   input[type="range"]{ width:100%; accent-color:var(--highlighter); }
-  .field-value{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink); font-size:13px; }
+  .field-value{ font-family:var(--font-mono); font-variant-numeric:tabular-nums; color:var(--ink); font-size:14px; }
 
   button{
     background:var(--paper-2); border:1px solid var(--rule); border-radius:4px;
-    padding:8px 12px; font-size:13px; cursor:pointer; transition:background-color .12s, color .12s;
+    padding:8px 12px; font-size:14px; cursor:pointer; transition:background-color .12s, color .12s;
   }
   button:hover{ background:var(--rule); }
   button.primary{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
@@ -243,7 +295,7 @@
   .acc > summary{
     list-style:none; cursor:pointer; position:relative;
     padding:13px 40px 13px 16px;
-    font-family:var(--font-mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    font-family:var(--font-mono); font-size:13px; letter-spacing:.1em; text-transform:uppercase;
     color:var(--ink-faint);
   }
   .acc > summary::-webkit-details-marker{ display:none; }
@@ -272,15 +324,15 @@
   }
 
   /* ---- trials ---- */
-  .tr-intro{ font-size:12.5px; line-height:1.55; color:var(--ink-faint); max-width:64ch; }
+  .tr-intro{ font-size:14px; line-height:1.55; color:var(--ink-faint); max-width:64ch; }
   .tr-controls{ display:flex; flex-wrap:wrap; align-items:end; gap:12px 18px; }
   .tr-controls .field{ flex:0 0 120px; }
   .tr-controls button{ flex:0 0 150px; }
   .tr-controls button[disabled]{ opacity:.6; cursor:default; }
-  .tr-caption{ font-size:12px; color:var(--ink-faint); line-height:1.5; }
-  .tr-caption .now-key{ color:var(--highlighter); font-weight:600; }
+  .tr-caption{ font-size:13px; color:var(--ink-faint); line-height:1.5; }
+  .tr-caption .now-key{ color:var(--hl-text); font-weight:600; }
   .tr-grid{ display:grid; grid-template-columns:auto 1fr auto; gap:9px 14px; align-items:center; margin-top:4px; }
-  .tr-name{ font-size:12.5px; color:var(--ink-faint); white-space:nowrap; }
+  .tr-name{ font-size:13.5px; color:var(--ink-faint); white-space:nowrap; }
   .tr-track{ position:relative; height:16px; min-width:120px; }
   .tr-track::before{                       /* full observed range */
     content:''; position:absolute; left:0; right:0; top:7px; height:2px;
@@ -295,7 +347,7 @@
     position:absolute; top:2px; width:2px; height:12px; background:var(--highlighter);
     box-shadow:0 0 0 2px color-mix(in srgb, var(--highlighter) 30%, transparent);
   }
-  .tr-val{ font-family:var(--font-mono); font-size:12px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .tr-val{ font-family:var(--font-mono); font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .tr-val small{ color:var(--ink-faint); }
 
   /* ---- run panel ---- */
@@ -306,15 +358,15 @@
   .transport .field{ flex:1 1 240px; max-width:380px; }
 
   .regions{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
-  .regions label{ display:flex; flex-direction:column; gap:4px; font-size:10.5px; font-family:var(--font-mono); color:var(--ink-faint); letter-spacing:.06em; }
-  .regions select{ padding:5px 4px; font-size:12px; }
+  .regions label{ display:flex; flex-direction:column; gap:4px; font-size:12px; font-family:var(--font-mono); color:var(--ink-faint); letter-spacing:.06em; }
+  .regions select{ padding:5px 4px; font-size:13px; }
   .preset-row{ display:flex; gap:6px; }
-  .preset-row button{ flex:1; padding:5px 6px; font-size:11.5px; font-family:var(--font-mono); }
-  .norm-desc{ font-size:12px; color:var(--ink-faint); line-height:1.5; min-height:46px; }
+  .preset-row button{ flex:1; padding:5px 6px; font-size:12.5px; font-family:var(--font-mono); }
+  .norm-desc{ font-size:13.5px; color:var(--ink-faint); line-height:1.5; min-height:46px; }
 
   .field-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 
-  .ledger{ display:grid; grid-template-columns:1fr auto; gap:6px 12px; font-family:var(--font-mono); font-size:13px; font-variant-numeric:tabular-nums; }
+  .ledger{ display:grid; grid-template-columns:1fr auto; gap:6px 12px; font-family:var(--font-mono); font-size:14px; font-variant-numeric:tabular-nums; }
   .ledger dt{ color:var(--ink-faint); }
   .ledger dd{ margin:0; text-align:right; }
   #sparkCanvas{ width:100%; max-width:360px; height:44px; display:block; margin-top:6px; }
@@ -324,11 +376,11 @@
   @media (max-width:720px){ .notes-grid{ grid-template-columns:1fr; } }
   .notes p{ font-size:14px; line-height:1.65; color:var(--ink); max-width:60ch; }
   .notes p + p{ margin-top:10px; }
-  .norm-defs dt{ font-family:var(--font-mono); font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-top:10px; }
+  .norm-defs dt{ font-family:var(--font-mono); font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); margin-top:10px; }
   .norm-defs dt:first-child{ margin-top:0; }
-  .norm-defs dd{ margin:2px 0 0 0; font-size:13.5px; color:var(--ink-faint); line-height:1.5; }
-  .cite{ margin-top:16px; font-size:12px; color:var(--ink-faint); font-style:italic; }
-  .notes code{ font-family:var(--font-mono); font-size:13px; }
+  .norm-defs dd{ margin:2px 0 0 0; font-size:14px; color:var(--ink-faint); line-height:1.5; }
+  .cite{ margin-top:16px; font-size:13px; color:var(--ink-faint); font-style:italic; }
+  .notes code{ font-family:var(--font-mono); font-size:13.5px; }
 </style>
 </head>
 <body>
@@ -349,12 +401,15 @@
       </div>
       <div class="canvas-row">
         <canvas id="ruler" aria-hidden="true"></canvas>
-        <div class="canvas-wrap">
-          <div class="region-strip" id="regionStrip" aria-hidden="true"></div>
-          <div class="canvas-stack">
-            <canvas id="stack" aria-label="Generation stack: each row is one generation, scrolling upward as the universe advances"></canvas>
-            <canvas id="overlay"></canvas>
+        <div class="canvas-col">
+          <div class="canvas-wrap">
+            <div class="region-strip" id="regionStrip" aria-hidden="true"></div>
+            <div class="canvas-stack">
+              <canvas id="stack" aria-label="Generation stack: each row is one generation, scrolling upward as the universe advances"></canvas>
+              <canvas id="overlay"></canvas>
+            </div>
           </div>
+          <div class="hscroll" id="stackScroll" aria-hidden="true" hidden><div class="hscroll-thumb"></div></div>
         </div>
       </div>
       <div class="extinct-note" id="extinctNote" hidden>
@@ -367,12 +422,13 @@
         </div>
         <div class="hl-group" role="group" aria-label="Highlight">
           <span class="hl-label">show</span>
-          <button data-hl="all" aria-pressed="true">everything</button>
+          <button data-hl="all" aria-pressed="true">everything<span class="tip" aria-hidden="true">Every gene, colored by <b>which number</b> it is — the default view. Neighboring numbers are given very different hues, so they can't be mistaken for one another.</span></button>
           <button data-hl="symb" aria-pressed="false">symbionts<span class="tip" aria-hidden="true">Genes locked in <b>mutual</b> dependence: A reads B's value to earn an extra copy, and B reads A's. Neither reproduces as well without the other. A connected run of them is one <b>organism</b> — Barricelli's symbioorganism — so the ledger counts the cells and the organisms separately.</span></button>
           <button data-hl="par" aria-pressed="false">parasites<span class="tip" aria-hidden="true">Genes that read a neighbor to earn an extra copy while that neighbor gets nothing back. The dependency runs <b>one way only</b>. A cell counts here when it has at least one such link and no mutual one.</span></button>
           <button data-hl="org" aria-pressed="false">organisms<span class="tip" aria-hidden="true">An <b>organism</b> is a connected run of genes that depend on each other to reproduce: A reads B’s value to earn an extra copy and B reads A’s, and any cells joined by such mutual links form one body — Barricelli’s <em>symbioorganism</em>. This view colors each cell by <b>which organism</b> it belongs to, followed from one generation to the next, so you can watch a body persist, split or die. Everything outside an organism drops away. Roughly three quarters of organisms last a single generation, so each one is drawn <b>more solidly the longer it survives</b> — the faint speckle is churn, the solid bands are the ones that endure.</span></button>
+          <button class="info-btn" data-info="views" aria-label="About the four views" title="About the four views">i</button>
         </div>
-        <span class="hint">Click a cell to trace its <b>ancestry</b>. Zoom in to scroll sideways.</span>
+        <span class="hint">Click a cell to trace its <b>ancestry</b>.</span>
       </div>
     </div>
 
@@ -420,6 +476,7 @@
         </label>
         <div class="row full">
           <button id="injectBtn" style="flex:1">Inject organism<span class="tip" aria-hidden="true">Drops the five-cell pattern <b>4, 1, −1, ·, −4</b> into the current generation at a random spot (the · is an empty cell). The 4 and the −4 read each other, and so do the 1 and the −1 — two mutually dependent pairs, so the ledger counts all four genes as symbiont cells. Left alone in an empty universe it spreads steadily, where a <em>single</em> gene with no neighbors to read would copy itself to one new place each generation and never number more than one.</span></button>
+          <button class="info-btn" data-info="inject" aria-label="About the injected organism" title="About the injected organism">i</button>
           <button id="resetBtn" style="flex:1">Reset</button>
         </div>
       </div>
@@ -490,6 +547,7 @@
         <div class="teach-stage">
           <svg id="teachSvg" viewBox="0 0 880 292" role="img" aria-label="Step-by-step diagram of one generation being written"></svg>
         </div>
+        <div class="hscroll" id="teachScroll" aria-hidden="true" hidden><div class="hscroll-thumb"></div></div>
         <p class="teach-say" id="teachSay">—</p>
         <div class="teach-controls">
           <button class="primary" id="teachNext">Next step</button>
@@ -536,6 +594,14 @@
         <dl class="dlg-norms" id="dlgNorms"></dl>
         <p class="dlg-foot">Barricelli ran <em>different norms in different regions of the same universe</em>, so that organisms drifting across a boundary met different rules and had to keep adapting. The four quarter selectors set which norm governs which quarter.</p>
       </div>
+    </dialog>
+
+    <dialog id="infoDialog">
+      <div class="dlg-head">
+        <h2 id="infoTitle"></h2>
+        <button id="infoClose" aria-label="Close">✕</button>
+      </div>
+      <div class="dlg-body"><dl class="dlg-norms" id="infoBody"></dl></div>
     </dialog>
 </div>
 <script>
@@ -925,16 +991,19 @@
   function syncRulerSize(){
     const cssH = stack.getBoundingClientRect().height || 1;
     ruler.style.height = cssH + 'px';
+    // the quadrant strip sits above the record, so the ruler must start where the
+    // rows start — not at the top of the strip, or every label reads ~15 gens high
+    ruler.style.marginTop = (stack.getBoundingClientRect().top - canvasWrap.getBoundingClientRect().top) + 'px';
     const dpr = window.devicePixelRatio || 1;
-    ruler.width = Math.max(1, Math.round((ruler.clientWidth||34)*dpr));
+    ruler.width = Math.max(1, Math.round((ruler.clientWidth||38)*dpr));
     ruler.height = Math.max(1, Math.round(cssH*dpr));
     rctx.setTransform(dpr,0,0,dpr,0,0);
   }
   function drawRuler(){
     const pal = palette();
-    const w = ruler.clientWidth||34, h = ruler.clientHeight||1;
+    const w = ruler.clientWidth||38, h = ruler.clientHeight||1;
     rctx.clearRect(0,0,w,h);
-    rctx.font = '9px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-mono');
+    rctx.font = '11px ' + getComputedStyle(document.documentElement).getPropertyValue('--font-mono');
     rctx.fillStyle = pal.inkFaint;
     rctx.textAlign = 'right'; rctx.textBaseline = 'middle';
     const rowH = h / VISIBLE_ROWS;
@@ -1038,7 +1107,7 @@
     const uniq = [...new Set(state.regions)];
     normDesc.textContent = uniq.map(l=>NORM_TEXT[l]).join('  ');
     regionStrip.innerHTML = state.regions
-      .map((l,q)=>`<span>Q${q+1} · Norm ${NORM_NAME[l]}</span>`).join('');
+      .map((l,q)=>`<span>Q${q+1} · <span class="rs-long">Norm </span>${NORM_NAME[l]}</span>`).join('');
     if(demo.cur) renderTeach();
   }
   document.querySelectorAll('.preset-row button').forEach(btn=>{
@@ -1057,6 +1126,37 @@
     b.addEventListener('click', ()=> normsDialog.showModal()));
   document.getElementById('normsClose').addEventListener('click', ()=> normsDialog.close());
   normsDialog.addEventListener('click', e=>{ if(e.target===normsDialog) normsDialog.close(); });
+
+  // ⓘ buttons: the same explanations the hover tooltips give, read from those
+  // tooltips so the two can never drift apart
+  const infoDialog = document.getElementById('infoDialog');
+  const infoTitle = document.getElementById('infoTitle');
+  const infoBody = document.getElementById('infoBody');
+  const tipOf = el => el.querySelector('.tip').innerHTML;
+  const INFO = {
+    views: () => ({ title:'The four views',
+      items:[...document.querySelectorAll('.hl-group button[data-hl]')].map(b=>({term:b.firstChild.textContent.trim(), html:tipOf(b)})) }),
+    inject: () => ({ title:'Inject organism', items:[{term:'', html:tipOf(document.getElementById('injectBtn'))}] })
+  };
+  document.querySelectorAll('.info-btn').forEach(b=>b.addEventListener('click', ()=>{
+    const {title, items} = INFO[b.dataset.info]();
+    infoTitle.textContent = title;
+    infoBody.innerHTML = items.map(i=>(i.term?`<dt>${i.term}</dt>`:'')+`<dd>${i.html}</dd>`).join('');
+    infoDialog.showModal();
+  }));
+  document.getElementById('infoClose').addEventListener('click', ()=> infoDialog.close());
+  infoDialog.addEventListener('click', e=>{ if(e.target===infoDialog) infoDialog.close(); });
+
+  // informational terms: a second tap on an open tooltip closes it
+  let termWasOpen = null;
+  document.addEventListener('pointerdown', e=>{
+    const t = e.target.closest('.lg-term, .normref');
+    termWasOpen = (t && document.activeElement===t) ? t : null;
+  });
+  document.addEventListener('click', e=>{
+    const t = e.target.closest('.lg-term, .normref');
+    if(t && t===termWasOpen) t.blur();
+  });
 
   // swatch strip sample
   // the legend has to follow the view: in the organisms view hue means identity,
@@ -1086,9 +1186,9 @@
     applyZoom();
   });
   reproRange.addEventListener('input', ()=>{ state.maxRepro=Number(reproRange.value); reproVal.textContent=state.maxRepro; });
-  document.querySelectorAll('.hl-group button').forEach(btn=>{
+  document.querySelectorAll('.hl-group button[data-hl]').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.hl-group button').forEach(b=>b.setAttribute('aria-pressed', b===btn));
+      document.querySelectorAll('.hl-group button[data-hl]').forEach(b=>b.setAttribute('aria-pressed', b===btn));
       state.highlight = btn.dataset.hl;
       buildSwatches();
       redrawFromHistory();
@@ -1394,13 +1494,45 @@
   }
 
   const TW=29, TX0=14, TTY=66, TBY=212, TCH=30;
+  // Numerals sit on the gene's own color, and those colors are mid-tones: at their
+  // record lightness, 24 of 48 fail 4.5:1 against the numeral in light mode, and no
+  // choice of text color rescues them all. So the teaching stage nudges each fill's
+  // lightness just far enough to clear 4.5:1, keeping its hue — the same value is
+  // still the same color family as in the record, occasionally a shade deeper.
+  function hslToRgb01(h,s,l){
+    s/=100; l/=100;
+    const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l);
+    const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
+    return [f(0),f(8),f(4)];
+  }
+  function relLum(rgb){
+    const c=x=>x<=0.03928?x/12.92:Math.pow((x+0.055)/1.055,2.4);
+    return 0.2126*c(rgb[0])+0.7152*c(rgb[1])+0.0722*c(rgb[2]);
+  }
+  const teachFillCache = new Map();
+  function teachFill(v, dark){
+    const key = v+(dark?'d':'l');
+    if(teachFillCache.has(key)) return teachFillCache.get(key);
+    const h = HUES[((v*7 % HUES.length) + HUES.length) % HUES.length];
+    const s = dark ? 52 : 46;
+    let l = dark ? (v>0 ? 63 : 52) : (v>0 ? 45 : 36);
+    const text = relLum(hexToRgb(palette().paper).map(x=>x/255));
+    const ratio = l2 => { const f=relLum(hslToRgb01(h,s,l2));
+      return (Math.max(f,text)+0.05)/(Math.min(f,text)+0.05); };
+    // numerals are light in light mode (darken the fill), dark in dark mode (lighten it)
+    while(ratio(l) < 4.6 && l > 5 && l < 95) l += dark ? 1 : -1;
+    const col = `hsl(${h} ${s}% ${l}%)`;
+    teachFillCache.set(key, col);
+    return col;
+  }
+
   function teachCell(v, x, y, dark, focus, ring){
     const cx=x+(TW-2)/2;
     if(v===0){
       return `<rect x="${x}" y="${y}" width="${TW-2}" height="${TCH}" rx="2" class="tc-empty"/>`
         + (ring?`<rect x="${x-2}" y="${y-2}" width="${TW+2}" height="${TCH+4}" rx="3" class="tc-ring"/>`:'');
     }
-    return `<rect x="${x}" y="${y}" width="${TW-2}" height="${TCH}" rx="2" fill="${colorForValue(v,dark)}"/>`
+    return `<rect x="${x}" y="${y}" width="${TW-2}" height="${TCH}" rx="2" fill="${teachFill(v,dark)}"/>`
       + `<text x="${cx}" y="${y+TCH/2+4}" class="tc-num">${v}</text>`
       + (focus?`<rect x="${x-3}" y="${y-3}" width="${TW+4}" height="${TCH+6}" rx="4" class="tc-focus"/>`:'')
       + (ring?`<rect x="${x-2}" y="${y-2}" width="${TW+2}" height="${TCH+4}" rx="3" class="tc-ring"/>`:'');
@@ -1411,26 +1543,26 @@
     const cx = j => TX0 + j*TW + (TW-2)/2;
     const p = [];
     p.push(`<style>
-      .tc-num{font:600 12px var(--font-mono); fill:var(--paper); text-anchor:middle; font-variant-numeric:tabular-nums;}
+      .tc-num{font:600 13px var(--font-mono); fill:var(--paper); text-anchor:middle; font-variant-numeric:tabular-nums;}
       .tc-empty{fill:none; stroke:var(--rule); stroke-dasharray:2 3;}
       .tc-focus{fill:none; stroke:var(--highlighter); stroke-width:2;}
       .tc-ring{fill:none; stroke:var(--spark); stroke-width:1.5; stroke-dasharray:3 2; opacity:.45;}
-      .tlbl{font:11px var(--font-mono); fill:var(--ink-faint); letter-spacing:.06em;}
+      .tlbl{font:12.5px var(--font-mono); fill:var(--ink-faint); letter-spacing:.06em;}
       .tarc{fill:none; stroke:var(--highlighter); stroke-width:2;}
       .tarc.borrow{stroke:var(--ink-faint); stroke-dasharray:4 3;}
       .tarc.hit{stroke:var(--spark);}
-      .talbl{font:600 10px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
+      .talbl{font:600 11.5px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
       .tg-dim{stroke:var(--spark); stroke-width:2; stroke-linecap:round;}
-      .tg-lbl{font:700 12px var(--font-mono); fill:var(--spark); text-anchor:middle;}
-      .tg-cap{font:italic 10px var(--font-body); fill:var(--spark); text-anchor:middle;}
+      .tg-lbl{font:700 13px var(--font-mono); fill:var(--spark); text-anchor:middle;}
+      .tg-cap{font:italic 11px var(--font-body); fill:var(--spark); text-anchor:middle;}
       .tg-origin{fill:none; stroke:var(--spark); stroke-width:2; stroke-dasharray:4 3;}
       .tg-ring{fill:none; stroke:var(--spark); stroke-width:2;}
       .tg-hit{fill:none; stroke:var(--spark); stroke-width:2.5;}
       .tg-link{stroke:var(--spark); stroke-width:1.5; stroke-dasharray:2 4; opacity:.7;}
-      .tcol{font:9px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
+      .tcol{font:11px var(--font-mono); fill:var(--ink-faint); text-anchor:middle;}
       .tq-band{fill:var(--rule); opacity:.32;}
       .tq-band.alt{opacity:.12;}
-      .tq-lbl{font:600 10px var(--font-mono); fill:var(--ink-faint); text-anchor:middle; letter-spacing:.04em;}
+      .tq-lbl{font:600 11.5px var(--font-mono); fill:var(--ink-faint); text-anchor:middle; letter-spacing:.04em;}
       .tq-div{stroke:var(--rule); stroke-width:1; stroke-dasharray:2 4;}
     </style>`);
     p.push(`<text x="4" y="14" class="tlbl">READING · generation ${demo.gen}</text>`);
@@ -1517,6 +1649,48 @@
   teachReset.addEventListener('click', ()=>{ teachStopPlay(); demoReset(); });
 
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ buildSwatches(); redrawFromHistory(); drawSparkline(); renderTeach(); });
+
+  // ---------- always-visible horizontal scrollbars ----------
+  function attachScrollbar(scroller, bar, content){
+    const thumb = bar.querySelector('.hscroll-thumb');
+    function sync(){
+      const sw = scroller.scrollWidth, cw = scroller.clientWidth;
+      const over = cw > 0 && sw > cw + 1;
+      bar.hidden = !over;
+      if(!over) return;
+      const bw = bar.clientWidth, tw = Math.max(36, bw*cw/sw);
+      thumb.style.width = tw + 'px';
+      thumb.style.transform = `translateX(${(bw-tw) * scroller.scrollLeft/(sw-cw)}px)`;
+    }
+    scroller.addEventListener('scroll', sync, {passive:true});
+    const ro = new ResizeObserver(sync);
+    ro.observe(scroller);
+    if(content) ro.observe(content);
+
+    // press anywhere on the bar: jump there, then keep dragging from that point
+    let drag = null;
+    bar.addEventListener('pointerdown', e=>{
+      const r = bar.getBoundingClientRect(), tw = thumb.offsetWidth, travel = r.width - tw;
+      const span = scroller.scrollWidth - scroller.clientWidth;
+      if(e.target !== thumb && travel > 0)
+        scroller.scrollLeft = Math.max(0, Math.min(1, (e.clientX - r.left - tw/2)/travel)) * span;
+      drag = {x:e.clientX, left:scroller.scrollLeft};
+      bar.setPointerCapture(e.pointerId);
+      bar.classList.add('dragging');
+      e.preventDefault();
+    });
+    bar.addEventListener('pointermove', e=>{
+      if(!drag) return;
+      const travel = bar.clientWidth - thumb.offsetWidth;
+      if(travel > 0) scroller.scrollLeft = drag.left + (e.clientX - drag.x) * (scroller.scrollWidth - scroller.clientWidth)/travel;
+    });
+    const end = ()=>{ drag = null; bar.classList.remove('dragging'); };
+    ['pointerup','pointercancel','lostpointercapture'].forEach(t=>bar.addEventListener(t, end));
+    sync();
+  }
+  attachScrollbar(canvasWrap, document.getElementById('stackScroll'), stack);
+  attachScrollbar(document.querySelector('.teach-stage'), document.getElementById('teachScroll'),
+                  document.getElementById('teachSvg'));
 
   resetUniverse(true);
   demoReset();

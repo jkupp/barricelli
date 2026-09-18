@@ -54,8 +54,8 @@ the distance leftward.
 so organisms drifting across a boundary meet different rules. Presets: BBAA
 (default), ADAD, AAAA, Zero.
 
-Code: `applyNorm` (line ~677), `placeGene` (~698), `stepOnce` (~713),
-`normForColumn` (~692).
+Code: `applyNorm` (line ~743), `placeGene` (~764), `stepOnce` (~779),
+`normForColumn` (~758).
 
 ---
 
@@ -114,12 +114,12 @@ Single file. Inside one IIFE; no framework.
 
 | Concern | Where | Notes |
 |---|---|---|
-| Simulation | ~669–745 | Pure-ish; reads settings off `state` |
-| Roles & components | `analyzeRoles` ~752 | Returns `comps` (membership), counts |
-| Organism tracking | `trackOrganisms` ~807 | Cross-generation identity |
-| Record rendering | `paintRow` ~871, `appendGenerationRow` ~913 | Canvas scroll-blit |
-| Teaching stage | `demoStep` ~1292, `renderTeach` ~1409 | SVG, separate tiny universe |
-| Trials | ~1104–1190 | Headless, no history, no drawing |
+| Simulation | ~735–811 | Pure-ish; reads settings off `state` |
+| Roles & components | `analyzeRoles` ~818 | Returns `comps` (membership), counts |
+| Organism tracking | `trackOrganisms` ~873 | Cross-generation identity |
+| Record rendering | `paintRow` ~937, `appendGenerationRow` ~979 | Canvas scroll-blit |
+| Teaching stage | `demoStep` ~1392, `renderTeach` ~1541 | SVG, separate tiny universe |
+| Trials | ~1204–1290 | Headless, no history, no drawing |
 
 **Two renderers on purpose.** The record is a canvas with a scroll-blit (many
 thousands of cells, needs speed; cells are ~2px). The teaching stage is SVG (few
@@ -133,6 +133,10 @@ resolution — so changing the cell size did literally nothing on screen.
 **History** is capped at `HISTORY_CAP = 400` rows; each entry carries `values`,
 `parent`, `roles`, `orgId`, `orgAge`, so redraws and the ancestry inspector work
 from stored state rather than recomputation.
+
+**The ruler is offset to start where the rows start** (`syncRulerSize`). The
+quadrant strip sits above the record, and for a while the ruler began at the top
+of the strip, so every label read about 15 generations high.
 
 **Reset preruns exactly `VISIBLE_ROWS - 1` generations**, so the top of the record
 is generation 0. This is deliberate: an earlier version pre-ran far more and you
@@ -160,6 +164,37 @@ don't recombine them.
 
 **The legend follows the view.** In the organisms view, hue means identity, not
 value; the legend and swatches change accordingly, or they'd be quietly lying.
+
+**Accessibility: all text meets WCAG AA (4.5:1) in both themes.** Measured on
+the rendered page, not from token math — 132 HTML text elements plus every SVG
+label and gene-cell numeral. In light mode this required darkening
+`--ink-faint`, `--spark` and `--highlighter` (hue kept, each solved to just clear
+its target). Amber *text* needs more contrast than amber *graphics*, so it has
+its own token, `--hl-text`; use it for any amber text you add, and keep
+`--highlighter` for strokes, markers and the focus ring (3:1). If you retune the
+palette, re-run the audit rather than eyeballing it: the intro paragraph looked
+fine and measured 2.6:1.
+
+**Gene-cell numerals get their own fill (`teachFill`).** The record's gene colors
+are mid-tones, and a mid-tone can't reach 4.5:1 against *any* text color — even
+picking the better of dark or light per cell leaves 14 of 48 failing. So the
+teaching stage nudges each fill's lightness until its numeral clears 4.5:1,
+keeping the hue. The same value can therefore look a shade deeper there than in
+the record. That's deliberate; don't "fix" it by making the two share
+`colorForValue`.
+
+**Hover tooltips exist only where hovering does** (`@media (hover:hover)`). On a
+touchscreen a tap is also a hover, and it sticks — so a tooltip on an action
+button popped up over the record every time the button was used. Touch users get
+ⓘ buttons that open the same text in a dialog; that text is read from the
+tooltips at runtime, so the two can't drift. Informational terms (ledger labels,
+norm names) open on tap and close on a second tap.
+
+**Both horizontal scrollers use a drawn scrollbar** (`attachScrollbar`), with
+the native one hidden. Native bars on macOS and iOS are overlays that stay
+invisible until you're already scrolling, and iOS ignores scrollbar styling
+entirely — so CSS alone could not make these discoverable on phones, where the
+teaching diagram *always* scrolls.
 
 **Palette uses a coprime hue stride** (`×7` over a 24-entry table) so adjacent
 *values* get distant *hues*. Sequential hues made the record look monotone.
@@ -220,6 +255,10 @@ scroller by design.
   small-multiples view would make the §2 table visible in the app.
 - **Run-to-run variance is large.** Reach for Trials before concluding anything
   from a single universe — including when evaluating a change you just made.
+- **The teaching diagram's text is small on phones.** The SVG keeps a 620px
+  minimum width and scrolls, so on a 375px screen everything in it is drawn at
+  about 70%. Raising the minimum enlarges the text but means more scrolling to
+  follow the arcs; 620 was left as the compromise.
 - **`injectOrganism` writes every element of its pattern, zeros included**, so
   zeros clear live cells. Keep injected patterns free of trailing zeros.
 
