@@ -194,6 +194,22 @@ button popped up over the record every time the button was used. Touch users get
 tooltips at runtime, so the two can't drift. Informational terms (ledger labels,
 norm names) open on tap and close on a second tap.
 
+**Keyboard and screen-reader support, invisible to everyone else.** The record
+is a tab stop (`role="application"`); arrow keys select a gene and open the same
+ancestry inspector a click does, always stepping between genes so they never land
+on an empty cell, with Page Up/Down for ten generations and Escape to clear. Its
+focus ring appears only for keyboard focus (`:focus-visible`). Status that
+changes without moving focus — the inspector's contents, trial progress and
+results, extinction — goes through one polite live region (`announce()`), and
+the teaching narration is itself a live region. Escape dismisses any open
+tooltip, and invisible bridges let the pointer cross the gap onto a tooltip
+without it closing (WCAG 1.4.13). The sparkline's `aria-label` is rewritten with
+its range each time it redraws. Only Tab can focus the record: a `mousedown`
+handler stops mouse and touch from focusing it and blurs whatever had focus, which
+is exactly what a click did before the record was focusable. (An earlier attempt
+let clicks focus it and then ignored the arrows, which quietly stopped them from
+scrolling the page — don't reintroduce that.) Mouse and touch users see no change.
+
 **Both horizontal scrollers use a drawn scrollbar** (`attachScrollbar`), with
 the native one hidden. Native bars on macOS and iOS are overlays that stay
 invisible until you're already scrolling, and iOS ignores scrollbar styling

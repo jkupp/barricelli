@@ -118,6 +118,14 @@
   .canvas-stack canvas{ display:block; image-rendering:pixelated; }
   #overlay{ position:absolute; inset:0; pointer-events:none; }
   #stack{ cursor:crosshair; }
+  /* keyboard users only: mouse and touch focus never shows this ring */
+  #stack:focus-visible{ outline:2px solid var(--focus); outline-offset:-2px; }
+
+  /* text for screen readers only */
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
 
   .stage-caption{
     display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px;
@@ -173,6 +181,15 @@
   @media (max-width:600px){ .region-strip .rs-long{ display:none; } }
 
   /* ---- tooltips (shared) ---- */
+  /* WCAG 1.4.13: a tooltip must be dismissible (Esc, see script), and hoverable —
+     the pointer has to be able to travel from the trigger onto the tooltip. These
+     invisible bridges span the gap between them, which otherwise dismissed it. */
+  .hl-group button .tip::after, #injectBtn .tip::after{
+    content:''; position:absolute; left:0; right:0; top:100%; height:9px; }
+  .normref .tip::before, .lg-term .tip::before{
+    content:''; position:absolute; left:0; right:0; bottom:100%; height:8px; }
+  [data-tip-dismissed] > .tip{ display:none !important; }
+
   .tip{
     display:none; position:absolute; z-index:30;
     width:min(330px, 72vw); padding:9px 11px; border-radius:4px; text-align:left;
@@ -405,8 +422,10 @@
           <div class="canvas-wrap">
             <div class="region-strip" id="regionStrip" aria-hidden="true"></div>
             <div class="canvas-stack">
-              <canvas id="stack" aria-label="Generation stack: each row is one generation, scrolling upward as the universe advances"></canvas>
-              <canvas id="overlay"></canvas>
+              <canvas id="stack" tabindex="0" role="application" aria-roledescription="generation record"
+                aria-label="Generation stack: each row is one generation, scrolling upward as the universe advances"
+                aria-describedby="stackKeys"></canvas>
+              <canvas id="overlay" aria-hidden="true"></canvas>
             </div>
           </div>
           <div class="hscroll" id="stackScroll" aria-hidden="true" hidden><div class="hscroll-thumb"></div></div>
@@ -515,7 +534,7 @@
           <dt><span class="lg-term" tabindex="0">Largest organism<span class="tip">How many cells are in the biggest single cluster of mutual dependence. A high number means one large cooperative body rather than many small ones.</span></span></dt><dd id="statBiggest">0</dd>
           <dt><span class="lg-term" tabindex="0">Oldest organism<span class="tip">How many generations the longest-surviving organism has held together. Most organisms last a single generation; a few persist for hundreds, and those are the ones worth watching. The <em>organisms</em> view draws each one more solidly the longer it has survived.</span></span></dt><dd id="statOldest">—</dd>
         </dl>
-        <canvas id="sparkCanvas" width="272" height="44"></canvas>
+        <canvas id="sparkCanvas" width="272" height="44" role="img" aria-label="Population over time"></canvas>
       </div>
     </details>
 
@@ -548,7 +567,7 @@
           <svg id="teachSvg" viewBox="0 0 880 292" role="img" aria-label="Step-by-step diagram of one generation being written"></svg>
         </div>
         <div class="hscroll" id="teachScroll" aria-hidden="true" hidden><div class="hscroll-thumb"></div></div>
-        <p class="teach-say" id="teachSay">—</p>
+        <p class="teach-say" id="teachSay" aria-live="polite">—</p>
         <div class="teach-controls">
           <button class="primary" id="teachNext">Next step</button>
           <button id="teachPlay">Play</button>
@@ -595,6 +614,9 @@
         <p class="dlg-foot">Barricelli ran <em>different norms in different regions of the same universe</em>, so that organisms drifting across a boundary met different rules and had to keep adapting. The four quarter selectors set which norm governs which quarter.</p>
       </div>
     </dialog>
+
+    <p id="stackKeys" class="sr-only">Use the arrow keys to select a gene and hear its value and ancestry: left and right move along a generation, up and down move between generations, Page Up and Page Down jump ten generations, Escape clears the selection.</p>
+    <div id="srStatus" class="sr-only" role="status" aria-live="polite"></div>
 
     <dialog id="infoDialog">
       <div class="dlg-head">
@@ -690,6 +712,17 @@
   const extinctNote = document.getElementById('extinctNote');
   const extinctReset = document.getElementById('extinctReset');
   let wasAlive = true;
+
+  // WCAG 4.1.3: messages that appear without moving focus are announced to screen
+  // readers through one polite live region. Clearing it first means a repeat of
+  // the same message is still spoken.
+  const srStatus = document.getElementById('srStatus');
+  let announceTimer = null;
+  function announce(msg){
+    srStatus.textContent = '';
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(()=>{ srStatus.textContent = msg; }, 60);
+  }
 
   function palette(){
     const cs = getComputedStyle(document.documentElement);
@@ -807,7 +840,8 @@
     drawSparkline();
     drawRuler();
 
-    if(pop===0 && wasAlive){ wasAlive=false; extinctNote.hidden=false; pause(); }
+    if(pop===0 && wasAlive){ wasAlive=false; extinctNote.hidden=false; pause();
+      announce('The universe has gone empty. Use Reset to reseed it.'); }
     else if(pop>0){ wasAlive=true; extinctNote.hidden=true; }
   }
 
@@ -1031,6 +1065,10 @@
     sparkCtx.strokeStyle = pal.rule; sparkCtx.lineWidth = 1;
     sparkCtx.beginPath(); sparkCtx.moveTo(0,h-0.5); sparkCtx.lineTo(w,h-0.5); sparkCtx.stroke();
     const data = state.popHistory;
+    // WCAG 1.1.1: the chart's content, in words
+    if(data.length) sparkCanvas.setAttribute('aria-label',
+      `Population over the last ${data.length} generation${data.length===1?'':'s'}: `
+      + `between ${Math.min(...data)} and ${Math.max(...data)}, now ${data[data.length-1]}.`);
     if(data.length<2) return;
     const maxV = Math.max(state.size*0.6, ...data, 1);
     const stepX = w/Math.max(1,data.length-1);
@@ -1274,6 +1312,7 @@
     const nowGen = state.gen;
     const runs = [];
     trialsBtn.disabled = true;
+    announce(`Running ${n} trials of ${gens} generations.`);
     (function slice(){
       const t0 = performance.now();
       while(runs.length < n && performance.now()-t0 < 80) runs.push(runTrial(gens));
@@ -1282,6 +1321,9 @@
       else {
         trialsBtn.disabled = false; trialsBtn.textContent = 'Run trials';
         renderTrials(runs, gens, now, nowGen);
+        const med = k => quant(runs.map(r=>r[k]).sort((a,b)=>a-b), .5);
+        announce(`Trials finished: ${n} trials. Medians: population ${med('pop')}, `
+          + `symbiont cells ${med('symb')}, organisms ${med('orgs')}, largest organism ${med('biggest')}.`);
       }
     })();
   }
@@ -1309,7 +1351,8 @@
     for(let i=state.history.length-1;i>=0;i--) if(state.history[i].gen===gen) return state.history[i];
     return null;
   }
-  function hideInspector(){ inspector.hidden=true; octx.clearRect(0,0,overlay.width,overlay.height); }
+  let kbSel = null;          // the selected gene, shared by clicks and the keyboard
+  function hideInspector(){ inspector.hidden=true; kbSel=null; octx.clearRect(0,0,overlay.width,overlay.height); }
   inspectorClose.addEventListener('click', hideInspector);
 
   function inspectCell(gen, col){
@@ -1334,6 +1377,8 @@
       ? `${trace.length-1} generation${trace.length-1===1?'':'s'} back to ${why}`
       : 'written this generation';
     inspector.hidden = false;
+    kbSel = {gen, col};
+    announce(`Value ${value}, column ${col}, generation ${gen}. Lineage: ${insTrace.textContent}.`);
 
     octx.clearRect(0,0,overlay.width,overlay.height);
     octx.strokeStyle = palette().highlighter; octx.lineWidth = 1.5;
@@ -1352,6 +1397,72 @@
     const col = Math.floor(cx/CELL), row = Math.floor(cy/CELL);
     inspectCell(state.gen - (VISIBLE_ROWS-1-row), col);
   });
+
+  // WCAG 2.1.1: the same inspection from the keyboard. Arrows step between genes —
+  // never onto empty cells, so there is always something to report. Mouse and
+  // touch behaviour is unchanged.
+  function genesInRow(gen){ const e = findHistoryEntry(gen); return e ? e.values : null; }
+  function nearestGene(gen, col, dir){
+    const v = genesInRow(gen); if(!v) return -1;
+    const n = state.size;
+    if(dir){                                      // the next gene that way, wrapping round
+      for(let k=1;k<=n;k++){ const c = ((col + dir*k) % n + n) % n; if(v[c]!==0) return c; }
+      return -1;
+    }
+    for(let d=0; d<=n/2; d++){                    // the nearest gene either side
+      const a = ((col-d)%n+n)%n, b = (col+d)%n;
+      if(v[a]!==0) return a; if(v[b]!==0) return b;
+    }
+    return -1;
+  }
+  function revealColumn(col){
+    const cellCss = stack.getBoundingClientRect().width / state.size;
+    const x = col*cellCss, pad = 24;
+    if(x < canvasWrap.scrollLeft + pad) canvasWrap.scrollLeft = x - pad;
+    else if(x > canvasWrap.scrollLeft + canvasWrap.clientWidth - pad)
+      canvasWrap.scrollLeft = x - canvasWrap.clientWidth + pad;
+  }
+  // Only Tab can focus the record. Before it was focusable, clicking it simply
+  // left nothing focused — so arrow keys scrolled the page and Space didn't press
+  // whatever button had been used last. A click must keep doing exactly that.
+  stack.addEventListener('mousedown', e=>{
+    e.preventDefault();
+    if(document.activeElement) document.activeElement.blur();
+  });
+  stack.addEventListener('keydown', e=>{
+    const keys = {ArrowLeft:[0,-1], ArrowRight:[0,1], ArrowUp:[-1,0], ArrowDown:[1,0], PageUp:[-10,0], PageDown:[10,0]};
+    if(e.key==='Escape'){ if(kbSel){ hideInspector(); announce('Selection cleared.'); e.preventDefault(); } return; }
+    if(!(e.key in keys) && e.key!=='Enter') return;
+    e.preventDefault();
+    pause();
+    const oldest = Math.max(state.history[0].gen, state.gen - VISIBLE_ROWS + 1);
+    let gen, col;
+    if(!kbSel){                                   // start on the newest generation
+      gen = state.gen; col = nearestGene(gen, 0, 0);
+    } else {
+      const [dg, dc] = keys[e.key] || [0,0];
+      gen = Math.max(oldest, Math.min(state.gen, kbSel.gen + dg));
+      col = dc ? nearestGene(gen, kbSel.col, dc) : nearestGene(gen, kbSel.col, 0);
+    }
+    if(col < 0){ announce(`Generation ${gen} is empty.`); return; }
+    inspectCell(gen, col);
+    revealColumn(col);
+  });
+
+  // WCAG 1.4.13: Esc hides whichever tooltip is showing, without moving the pointer
+  // or focus. It can show again once the pointer or focus has left its trigger.
+  document.addEventListener('keydown', e=>{
+    if(e.key!=='Escape') return;
+    document.querySelectorAll('.tip').forEach(t=>{
+      if(getComputedStyle(t).display!=='none') t.parentElement.setAttribute('data-tip-dismissed','');
+    });
+  });
+  const releaseTip = e=>{
+    const trig = e.target.closest && e.target.closest('[data-tip-dismissed]');
+    if(trig && !trig.contains(e.relatedTarget)) trig.removeAttribute('data-tip-dismissed');
+  };
+  document.addEventListener('mouseout', releaseTip);
+  document.addEventListener('focusout', releaseTip);
 
   // ---------- teaching stage: one generation, slowed right down ----------
   const teachSvg = document.getElementById('teachSvg');
